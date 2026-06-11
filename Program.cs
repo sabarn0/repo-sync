@@ -190,6 +190,62 @@ app.MapDelete("/api/snapshots/{serverName}", (string serverName) =>
     }
 });
 
+// 5.6 Rename Snapshot Cache
+app.MapPost("/api/snapshots/{serverName}/rename", async (string serverName, HttpContext context) =>
+{
+    using var reader = new StreamReader(context.Request.Body);
+    var body = await reader.ReadToEndAsync();
+    var doc = JsonDocument.Parse(body);
+    if (!doc.RootElement.TryGetProperty("newName", out var newNameProp))
+    {
+        return Results.BadRequest("newName is required.");
+    }
+    string newName = newNameProp.GetString()?.Trim() ?? "";
+    if (string.IsNullOrEmpty(newName))
+    {
+        return Results.BadRequest("newName cannot be empty.");
+    }
+
+    var invalidChars = Path.GetInvalidFileNameChars();
+    if (newName.Any(c => invalidChars.Contains(c)))
+    {
+        return Results.BadRequest("newName contains invalid characters.");
+    }
+
+    string oldPath = Path.Combine(GetSnapshotDir(), $"snapshot_{serverName}.json");
+    string newPath = Path.Combine(GetSnapshotDir(), $"snapshot_{newName}.json");
+
+    if (!File.Exists(oldPath))
+    {
+        return Results.NotFound($"Snapshot not found for server '{serverName}'");
+    }
+    if (File.Exists(newPath) && !newName.Equals(serverName, StringComparison.OrdinalIgnoreCase))
+    {
+        return Results.BadRequest($"A snapshot named '{newName}' already exists.");
+    }
+
+    try
+    {
+        var jsonContent = File.ReadAllText(oldPath);
+        var snapshot = JsonSerializer.Deserialize<ScanSnapshot>(jsonContent);
+        if (snapshot != null)
+        {
+            snapshot.ServerName = newName;
+            File.WriteAllText(oldPath, JsonSerializer.Serialize(snapshot, new JsonSerializerOptions { WriteIndented = true }));
+        }
+
+        if (oldPath != newPath)
+        {
+            File.Move(oldPath, newPath, overwrite: true);
+        }
+        return Results.Ok(new { message = "Snapshot renamed successfully.", newName = newName });
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem($"Failed to rename snapshot: {ex.Message}");
+    }
+});
+
 // 6. Compare Base and Target Server Snapshots
 app.MapPost("/api/compare", (CompareRequest req) =>
 {

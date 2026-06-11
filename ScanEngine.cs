@@ -78,6 +78,18 @@ namespace RepoScanner.Services
                     (relativePathLower == b.Path || relativePathLower.StartsWith(b.Path + "\\"))
                 );
 
+                // Ignore hidden/system folders (like $RECYCLE.BIN, System Volume Information)
+                if (!string.IsNullOrEmpty(relativePath))
+                {
+                    var dirInfo = new DirectoryInfo(currentDir);
+                    if ((dirInfo.Attributes & (FileAttributes.Hidden | FileAttributes.System)) != 0 ||
+                        dirInfo.Name.StartsWith("$", StringComparison.OrdinalIgnoreCase) ||
+                        dirInfo.Name.Equals("System Volume Information", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return; // Skip completely
+                    }
+                }
+
                 // Inventory current directory itself (unless it's the root itself, or skipped)
                 if (!string.IsNullOrEmpty(relativePath))
                 {
@@ -102,6 +114,11 @@ namespace RepoScanner.Services
                         foreach (var filePath in files)
                         {
                             var fileInfo = new FileInfo(filePath);
+                            if ((fileInfo.Attributes & (FileAttributes.Hidden | FileAttributes.System)) != 0 ||
+                                fileInfo.Name.StartsWith("$", StringComparison.OrdinalIgnoreCase))
+                            {
+                                continue;
+                            }
                             string fileRelativePath = Path.GetRelativePath(rootPath, filePath);
                             inventory.Add(new FileInventoryItem
                             {
