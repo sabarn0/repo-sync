@@ -1,0 +1,33 @@
+{
+  "ServerName": "target-initial",
+  "RootPath": "C:\\Users\\sabar\\OneDrive\\Desktop\\VS\\test\\v2",
+  "ScannedAt": "2026-06-11T14:07:29.9773732Z",
+  "TotalFiles": 2,
+  "TotalFolders": 1,
+  "Inventory": [
+    {
+      "Name": "x",
+      "RelativePath": "x",
+      "IsFolder": true,
+      "Size": 0,
+      "LastModified": "2026-06-11T14:06:48.524212Z",
+      "RootPath": "C:\\Users\\sabar\\OneDrive\\Desktop\\VS\\test\\v2"
+    },
+    {
+      "Name": "New Text Document.txt",
+      "RelativePath": "New Text Document.txt",
+      "IsFolder": false,
+      "Size": 0,
+      "LastModified": "2026-06-11T13:31:06.6737203Z",
+      "RootPath": "C:\\Users\\sabar\\OneDrive\\Desktop\\VS\\test\\v2"
+    },
+    {
+      "Name": "New Microsoft PowerPoint Presentation.pptx",
+      "RelativePath": "New Microsoft PowerPoint Presentation.pptx",
+      "IsFolder": false,
+      "Size": 0,
+      "LastModified": "2026-06-11T13:31:03.5696472Z",
+      "RootPath": "C:\\Users\\sabar\\OneDrive\\Desktop\\VS\\test\\v2"
+    }
+  ]
+}

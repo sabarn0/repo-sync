@@ -1,0 +1,75 @@
+[
+  {
+    "Name": "Server-1",
+    "NetworkRootPaths": [
+      "D:\\Server1\\Root",
+      "E:\\Server1\\Backup"
+    ],
+    "Blacklist": [
+      {
+        "Path": "Temp",
+        "IgnoreCondition": "IGNORE_ENTIRE_FOLDER"
+      },
+      {
+        "Path": "Logs",
+        "IgnoreCondition": "IGNORE_FILES_ONLY"
+      }
+    ]
+  },
+  {
+    "Name": "Server-2",
+    "NetworkRootPaths": [
+      "\\\\Server2\\D$",
+      "\\\\Server2\\E$"
+    ],
+    "Blacklist": []
+  },
+  {
+    "Name": "Server-3",
+    "NetworkRootPaths": [
+      "\\\\Server3\\D$",
+      "\\\\Server3\\E$"
+    ],
+    "Blacklist": []
+  },
+  {
+    "Name": "Server-4",
+    "NetworkRootPaths": [
+      "\\\\Server4\\D$",
+      "\\\\Server4\\E$"
+    ],
+    "Blacklist": []
+  },
+  {
+    "Name": "Server-5",
+    "NetworkRootPaths": [
+      "\\\\Server5\\D$",
+      "\\\\Server5\\E$"
+    ],
+    "Blacklist": []
+  },
+  {
+    "Name": "Server-6",
+    "NetworkRootPaths": [
+      "\\\\Server6\\D$",
+      "\\\\Server6\\E$"
+    ],
+    "Blacklist": []
+  },
+  {
+    "Name": "Server-7",
+    "NetworkRootPaths": [
+      "\\\\Server7\\D$",
+      "\\\\Server7\\E$"
+    ],
+    "Blacklist": []
+  },
+  {
+    "Name": "Server-8",
+    "NetworkRootPaths": [
+      "\\\\Server8\\D$",
+      "\\\\Server8\\E$"
+    ],
+    "Blacklist": []
+  }
+]

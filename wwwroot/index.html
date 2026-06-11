@@ -1,0 +1,1102 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enterprise Remote Sync Hub</title>
+    <!-- Tailwind CSS Play CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #faf9f5;
+            --surface: #ffffff;
+            --border: #e8e5dd;
+            --text-primary: #2d2d2d;
+            --text-secondary: #6b6b6b;
+            --accent: #d97757;
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --shadow: 0 1px 2px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.04);
+            --transition: 0.2s ease;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: var(--bg);
+            color: var(--text-primary);
+        }
+
+        code, pre {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Customize Scrollbars to match theme */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--bg);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #dcdad4;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #c8c6c0;
+        }
+    </style>
+</head>
+<body class="h-full flex flex-col overflow-hidden text-slate-800">
+
+    <!-- Header -->
+    <header class="flex items-center justify-between px-6 py-4 border-b border-[#e8e5dd] bg-white shrink-0 shadow-sm">
+        <div class="flex items-center gap-3">
+            <div class="h-9 w-9 rounded-xl bg-[#d97757] flex items-center justify-center shadow-md shadow-[#d97757]/10">
+                <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-lg font-bold tracking-tight text-slate-800">reposync</h1>
+                <p class="text-[10px] text-slate-500 font-semibold tracking-wider uppercase">Remote Repository Scanner & Sync</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-3">
+            <div id="mockStatus" class="hidden px-3 py-1 text-xs font-semibold rounded-full border bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
+                Mock Mode Active
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="flex-1 flex overflow-hidden">
+        
+        <!-- Sidebar: Config & Server Control -->
+        <aside class="w-80 border-r border-[#e8e5dd] bg-white shrink-0 overflow-y-auto p-4 space-y-4">
+            
+            <!-- Snapshot Generator -->
+            <div class="border border-[#e8e5dd] rounded-xl bg-[#faf9f5] overflow-hidden shadow-sm">
+                <div class="p-3 bg-white font-bold text-xs text-slate-500 border-b border-[#e8e5dd] uppercase tracking-wider">
+                    Snapshot Generator
+                </div>
+                <div class="p-3 space-y-3 bg-white">
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-500 mb-1">FOLDER PATH TO SCAN</label>
+                        <input type="text" id="scanPathInput" placeholder="\\{server}\d$\" class="w-full bg-[#faf9f5] border border-[#e8e5dd] rounded-lg py-2 px-3 text-slate-800 focus:outline-none focus:border-[#d97757] text-sm font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-500 mb-1">SNAPSHOT SAVE NAME</label>
+                        <input type="text" id="scanNameInput" placeholder="v1_backup" class="w-full bg-[#faf9f5] border border-[#e8e5dd] rounded-lg py-2 px-3 text-slate-800 focus:outline-none focus:border-[#d97757] text-sm">
+                    </div>
+                    <button onclick="triggerScan()" class="w-full py-2 px-4 bg-[#d97757] hover:bg-[#c86646] text-white font-medium rounded-lg text-xs transition-all flex items-center justify-center gap-2 shadow-sm">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        Scan & Save Snapshot
+                    </button>
+                </div>
+            </div>
+
+            <!-- Configure Blacklists Panel -->
+            <div class="border border-[#e8e5dd] rounded-xl bg-[#faf9f5] overflow-hidden shadow-sm">
+                <button onclick="togglePanel('blacklistPanel')" class="w-full flex items-center justify-between p-3 bg-white font-semibold text-xs text-slate-700 hover:bg-slate-50 transition-all border-b border-[#e8e5dd]">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Configure Blacklists</span>
+                        <span id="blacklistCountBadge" class="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-slate-100 text-slate-600">0</span>
+                    </div>
+                    <svg id="blacklistPanelChevron" class="w-4 h-4 text-slate-400 transition-transform duration-200 transform -rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+                <div id="blacklistPanel" class="hidden p-3 space-y-3 bg-white">
+                    <div id="blacklistEditor" class="space-y-2">
+                        <!-- Blacklist items load here -->
+                    </div>
+                    <button onclick="addBlacklistItem()" class="w-full py-1.5 px-3 bg-[#faf9f5] hover:bg-[#f3f0e8] border border-[#e8e5dd] text-slate-700 rounded-lg text-xs font-medium flex items-center justify-center gap-1 transition-all">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                        Add Blacklist Rule
+                    </button>
+                </div>
+            </div>
+
+            <!-- Inventory Caches Panel -->
+            <div class="border border-[#e8e5dd] rounded-xl bg-[#faf9f5] overflow-hidden shadow-sm">
+                <button onclick="togglePanel('snapshotPanel')" class="w-full flex items-center justify-between p-3 bg-white font-semibold text-xs text-slate-700 hover:bg-slate-50 transition-all border-b border-[#e8e5dd]">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Inventory Caches</span>
+                        <span id="snapshotCountBadge" class="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-slate-100 text-slate-600">0</span>
+                    </div>
+                    <svg id="snapshotPanelChevron" class="w-4 h-4 text-slate-400 transition-transform duration-200 transform -rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+                <div id="snapshotPanel" class="hidden p-3 space-y-2 bg-white">
+                    <div id="snapshotList" class="space-y-2">
+                        <!-- Loaded snapshots listed here -->
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Right Workspace: Comparison View -->
+        <section class="flex-1 flex flex-col overflow-hidden bg-white">
+            
+            <!-- Comparison Controls -->
+            <div class="p-4 border-b border-[#e8e5dd] bg-[#faf9f5] flex flex-col gap-3 shrink-0">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-semibold text-slate-500 whitespace-nowrap">Base Snapshot:</span>
+                            <select id="baseSnapshotSelect" class="text-xs bg-white border border-[#e8e5dd] rounded px-2.5 py-1.5 focus:outline-none focus:border-[#d97757]">
+                                <option value="">-- Select Base --</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-semibold text-slate-500 whitespace-nowrap">Target Snapshot:</span>
+                            <select id="targetSnapshotSelect" class="text-xs bg-white border border-[#e8e5dd] rounded px-2.5 py-1.5 focus:outline-none focus:border-[#d97757]">
+                                <option value="">-- Select Target --</option>
+                            </select>
+                        </div>
+                        <button onclick="compareServers()" class="py-1.5 px-4 bg-slate-800 hover:bg-slate-700 text-white font-semibold rounded-lg text-xs transition-all shadow-md flex items-center gap-2">
+                            Compare Base & Target
+                        </button>
+                        <button id="downloadComparisonBtn" onclick="downloadComparisonReport()" class="hidden py-1.5 px-3 bg-white hover:bg-slate-50 border border-[#e8e5dd] text-slate-700 rounded-lg text-xs font-semibold transition-all">
+                            Download Comparison Report
+                        </button>
+                        <div id="diffSummary" class="text-xs text-slate-500 hidden">
+                            Found <span id="addCount" class="text-emerald-600 font-bold">0</span> additions, 
+                            <span id="removeCount" class="text-rose-600 font-bold">0</span> removals, and 
+                            <span id="modifyCount" class="text-amber-600 font-bold">0</span> modifications.
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center gap-3">
+                        <label class="flex items-center gap-2 text-xs text-slate-600 font-medium">
+                            <input type="checkbox" id="ignoreSizeCheckbox" onchange="renderDiffs()" class="rounded text-[#d97757] focus:ring-[#d97757]">
+                            Ignore Size Mismatch
+                        </label>
+                        <button id="acceptAllBtn" onclick="syncSelected()" class="hidden py-1.5 px-3 bg-[#d97757] hover:bg-[#c86646] text-white rounded-lg text-xs font-semibold transition-all">
+                            Sync Selected Actions
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Changelogs & Revert Panel -->
+                <div class="flex flex-wrap gap-4 items-center bg-white p-2.5 rounded-lg border border-[#e8e5dd]">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-semibold text-slate-500 whitespace-nowrap">Changelog:</span>
+                        <select id="logFileSelect" class="text-xs bg-[#faf9f5] border border-[#e8e5dd] rounded px-2 py-1.5 focus:outline-none focus:border-[#d97757]">
+                            <option value="">-- Select Changelog --</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="downloadSelectedLog()" class="py-1.5 px-3 bg-white hover:bg-slate-50 border border-[#e8e5dd] text-slate-700 rounded-lg text-xs font-semibold transition-all">
+                            Download Log
+                        </button>
+                        <button onclick="loadSelectedLogToServer()" class="py-1.5 px-3 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-semibold transition-all">
+                            Load Log to Revert
+                        </button>
+                    </div>
+                    <div class="h-4 w-px bg-[#e8e5dd]"></div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-semibold text-slate-500 whitespace-nowrap">Or Upload Log:</span>
+                        <input type="file" id="logFileUpload" accept=".json" onchange="handleLogUpload(event)" class="hidden">
+                        <label for="logFileUpload" class="cursor-pointer py-1.5 px-3 bg-white hover:bg-slate-50 border border-[#e8e5dd] text-slate-700 rounded-lg text-xs font-semibold transition-all">
+                            Upload File
+                        </label>
+                    </div>
+                    <div id="revertModeIndicator" class="hidden flex items-center gap-2 ml-auto">
+                        <span class="px-2 py-0.5 text-xs font-bold rounded-full bg-rose-100 text-rose-800 animate-pulse">Revert Mode Active</span>
+                        <button onclick="exitRevertMode()" class="text-xs text-slate-500 hover:text-slate-700 underline font-semibold">Exit</button>
+                    </div>
+                </div>
+
+                <!-- Excel Style Filtering and sorting controls -->
+                <div class="flex gap-4 items-center bg-white p-2.5 rounded-lg border border-[#e8e5dd]">
+                    <div class="flex-1 flex items-center gap-2">
+                        <span class="text-xs font-semibold text-slate-500 whitespace-nowrap">Search Path:</span>
+                        <input type="text" id="pathSearchInput" oninput="renderDiffs()" placeholder="Filter paths like Excel... (e.g. folder/file)" class="w-full text-xs bg-[#faf9f5] border border-[#e8e5dd] rounded px-3 py-1.5 focus:outline-none focus:border-[#d97757]">
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-semibold text-slate-500 whitespace-nowrap">Filter Action:</span>
+                        <select id="actionFilterSelect" onchange="renderDiffs()" class="text-xs bg-[#faf9f5] border border-[#e8e5dd] rounded px-2 py-1.5 focus:outline-none focus:border-[#d97757]">
+                            <option value="ALL">All Actions</option>
+                            <option value="ADD">Additions Only</option>
+                            <option value="REMOVE">Removals Only</option>
+                            <option value="MODIFY">Modifications Only</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-semibold text-slate-500 whitespace-nowrap">Sort Paths:</span>
+                        <select id="pathSortOrder" onchange="renderDiffs()" class="text-xs bg-[#faf9f5] border border-[#e8e5dd] rounded px-2 py-1.5 focus:outline-none focus:border-[#d97757]">
+                            <option value="ASC">A-Z (Ascending)</option>
+                            <option value="DESC">Z-A (Descending)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Diff Table -->
+            <div class="flex-1 overflow-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="border-b border-[#e8e5dd] bg-[#faf9f5] text-slate-500 text-xs font-semibold uppercase tracking-wider sticky top-0 z-10">
+                            <th class="py-3 px-4 w-12 text-center">
+                                <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this.checked)" class="rounded text-[#d97757] focus:ring-[#d97757]">
+                            </th>
+                            <th class="py-3 px-4 w-12 text-center">Type</th>
+                            <th class="py-3 px-4">Relative Path</th>
+                            <th class="py-3 px-4">Action</th>
+                            <th class="py-3 px-4">Base Size / Date</th>
+                            <th class="py-3 px-4">Target Size / Date</th>
+                            <th class="py-3 px-4 w-28 text-center">Sync Action</th>
+                            <th class="py-3 px-4 w-24 text-center">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="diffContainer" class="divide-y divide-[#e8e5dd] text-sm text-slate-700">
+                        <tr>
+                            <td colspan="8" class="py-12 text-center text-slate-400">
+                                Select a Base and Target server, and click "Compare Base & Target" to view diffs.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        let diffItems = [];
+        let blacklistRules = JSON.parse(localStorage.getItem('blacklistRules') || '[]');
+
+        async function init() {
+            updateBlacklistUI();
+            await loadSnapshots();
+            try {
+                const res = await fetch('/api/mock-status');
+                const data = await res.json();
+                const mockEl = document.getElementById('mockStatus');
+                if (mockEl) {
+                    if (data.enableMock) {
+                        mockEl.classList.remove('hidden');
+                    } else {
+                        mockEl.classList.add('hidden');
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to fetch mock status", e);
+            }
+        }
+
+        function updateBlacklistUI() {
+            const container = document.getElementById('blacklistEditor');
+            const countBadge = document.getElementById('blacklistCountBadge');
+            container.innerHTML = '';
+            
+            if (countBadge) countBadge.textContent = blacklistRules.length;
+
+            blacklistRules.forEach((item, idx) => {
+                const path = item.Path || item.path || '';
+                const cond = item.IgnoreCondition || item.ignoreCondition || 'IGNORE_ENTIRE_FOLDER';
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'flex gap-1.5 items-center bg-[#faf9f5] p-1.5 rounded-lg border border-[#e8e5dd] justify-between';
+                itemDiv.innerHTML = `
+                    <input type="text" value="${path}" class="w-24 bg-white border border-[#e8e5dd] rounded px-1.5 py-0.5 text-xs text-slate-800 focus:outline-none focus:border-[#d97757]" onchange="updateBlacklistPath(${idx}, this.value)" placeholder="Path">
+                    <select class="flex-1 bg-white border border-[#e8e5dd] rounded px-1 py-0.5 text-[10px] text-slate-700 focus:outline-none focus:border-[#d97757]" onchange="updateBlacklistCond(${idx}, this.value)">
+                        <option value="IGNORE_ENTIRE_FOLDER" ${cond === 'IGNORE_ENTIRE_FOLDER' ? 'selected' : ''}>Ignore Folder</option>
+                        <option value="IGNORE_FILES_ONLY" ${cond === 'IGNORE_FILES_ONLY' ? 'selected' : ''}>Ignore Files Only</option>
+                    </select>
+                    <button onclick="removeBlacklistItem(${idx})" class="text-rose-600 hover:text-rose-800 p-1 shrink-0">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                    </button>
+                `;
+                container.appendChild(itemDiv);
+            });
+        }
+
+        function updateBlacklistPath(idx, val) {
+            blacklistRules[idx].Path = val;
+            saveBlacklist();
+        }
+
+        function updateBlacklistCond(idx, val) {
+            blacklistRules[idx].IgnoreCondition = val;
+            saveBlacklist();
+        }
+
+        function addBlacklistItem() {
+            blacklistRules.push({ Path: 'Temp', IgnoreCondition: 'IGNORE_ENTIRE_FOLDER' });
+            saveBlacklist();
+            updateBlacklistUI();
+        }
+
+        function removeBlacklistItem(idx) {
+            blacklistRules.splice(idx, 1);
+            saveBlacklist();
+            updateBlacklistUI();
+        }
+
+        function saveBlacklist() {
+            localStorage.setItem('blacklistRules', JSON.stringify(blacklistRules));
+        }
+
+        async function loadSnapshots() {
+            try {
+                const response = await fetch('/api/snapshots');
+                const list = await response.json();
+                const container = document.getElementById('snapshotList');
+                const countBadge = document.getElementById('snapshotCountBadge');
+                container.innerHTML = '';
+                
+                const baseSelect = document.getElementById('baseSnapshotSelect');
+                const targetSelect = document.getElementById('targetSnapshotSelect');
+                
+                // Save current selections
+                const prevBase = baseSelect.value;
+                const prevTarget = targetSelect.value;
+                
+                baseSelect.innerHTML = '<option value="">-- Select Base Snapshot --</option>';
+                targetSelect.innerHTML = '<option value="">-- Select Target Snapshot --</option>';
+
+                if (countBadge) countBadge.textContent = list.length;
+
+                list.forEach(snap => {
+                    const name = snap.serverName || snap.ServerName;
+                    const scanned = snap.scannedAt || snap.ScannedAt;
+                    
+                    const optBase = document.createElement('option');
+                    optBase.value = name;
+                    optBase.textContent = name;
+                    if (name === prevBase) optBase.selected = true;
+                    baseSelect.appendChild(optBase);
+
+                    const optTarget = document.createElement('option');
+                    optTarget.value = name;
+                    optTarget.textContent = name;
+                    if (name === prevTarget) optTarget.selected = true;
+                    targetSelect.appendChild(optTarget);
+
+                     const row = document.createElement('div');
+                    row.className = 'flex items-center justify-between p-2.5 rounded-lg bg-white border border-[#e8e5dd] text-xs shadow-sm';
+                    row.innerHTML = `
+                        <div>
+                            <div class="font-bold text-slate-800">${name}</div>
+                            <div class="text-[10px] text-slate-500">${new Date(scanned).toLocaleString()}</div>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <a href="/api/snapshots/${name}/download" download title="Download Snapshot" class="p-1.5 bg-[#faf9f5] hover:bg-[#f3f0e8] border border-[#e8e5dd] rounded text-[#d97757] transition-all flex items-center justify-center">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                </svg>
+                            </a>
+                            <button onclick="deleteSnapshot('${name}')" title="Delete Snapshot" class="p-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 rounded transition-all flex items-center justify-center">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                            </button>
+                        </div>
+                    `;
+                    container.appendChild(row);
+                });
+
+                if (list.length === 0) {
+                    container.innerHTML = `<p class="text-xs text-slate-500 italic">No snapshots scanned yet.</p>`;
+                }
+            } catch (err) {
+                console.error("Failed to load snapshots list", err);
+            }
+        }
+
+        async function deleteSnapshot(name) {
+            if (!confirm(`Are you sure you want to delete the snapshot cache for '${name}'?`)) return;
+            try {
+                const response = await fetch(`/api/snapshots/${name}`, { method: 'DELETE' });
+                if (response.ok) {
+                    await loadSnapshots();
+                } else {
+                    alert("Failed to delete snapshot.");
+                }
+            } catch (err) {
+                alert("Error deleting snapshot: " + err.message);
+            }
+        }
+
+        async function triggerScan() {
+            const scanPath = document.getElementById('scanPathInput').value.trim();
+            const scanName = document.getElementById('scanNameInput').value.trim();
+            if (!scanPath || !scanName) {
+                alert("Please provide both a Folder Path to Scan and a Snapshot Save Name.");
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/scan', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        path: scanPath,
+                        name: scanName,
+                        blacklist: blacklistRules
+                    })
+                });
+
+                if (!response.ok) {
+                    const err = await response.ok ? "" : await response.text();
+                    alert("Scan Failed: " + err);
+                    return;
+                }
+                
+                await loadSnapshots();
+                alert(`Scan complete. Snapshot saved as snapshot_${scanName}.json`);
+            } catch (err) {
+                alert("Error triggering scan");
+            }
+        }
+
+        async function compareServers() {
+            const baseServer = document.getElementById('baseSnapshotSelect').value;
+            const targetServer = document.getElementById('targetSnapshotSelect').value;
+            if (!baseServer || !targetServer) {
+                alert("Please select both a Base Snapshot and a Target Snapshot.");
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/compare', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ baseServer, targetServer })
+                });
+
+                if (!response.ok) {
+                    const errTxt = await response.text();
+                    alert("Comparison Error: " + errTxt);
+                    return;
+                }
+
+                const data = await response.json();
+                
+                // Sort by action type (REMOVE, then ADD, then MODIFY) and relative path
+                const actionOrder = { "REMOVE": 1, "ADD": 2, "MODIFY": 3 };
+                data.sort((a, b) => {
+                    const orderA = actionOrder[a.actionType] || actionOrder[a.ActionType] || 99;
+                    const orderB = actionOrder[b.actionType] || actionOrder[b.ActionType] || 99;
+                    if (orderA !== orderB) {
+                        return orderA - orderB;
+                    }
+                    const pathA = (a.relativePath || a.RelativePath || "").toLowerCase();
+                    const pathB = (b.relativePath || b.RelativePath || "").toLowerCase();
+                    return pathA.localeCompare(pathB);
+                });
+                
+                diffItems = data;
+                isRevertMode = false;
+                if (document.getElementById('revertModeIndicator')) {
+                    document.getElementById('revertModeIndicator').classList.add('hidden');
+                }
+                
+                if (diffItems.length > 0) {
+                    const targetRootPath = diffItems[0].targetRootPath || diffItems[0].TargetRootPath;
+                    if (targetRootPath) {
+                        loadChangelogsForPath(targetRootPath);
+                    }
+                }
+                
+                renderDiffs();
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function togglePanel(id) {
+            const el = document.getElementById(id);
+            const chevron = document.getElementById(id + 'Chevron');
+            if (el) {
+                if (el.classList.contains('hidden')) {
+                    el.classList.remove('hidden');
+                    if (chevron) chevron.classList.remove('-rotate-90');
+                } else {
+                    el.classList.add('hidden');
+                    if (chevron) chevron.classList.add('-rotate-90');
+                }
+            }
+        }
+
+        function updateSyncButtonLabel() {
+            const acceptAllBtn = document.getElementById('acceptAllBtn');
+            if (!acceptAllBtn) return;
+            const selectedCount = document.querySelectorAll('.row-checkbox:checked').length;
+            if (selectedCount === 0) {
+                acceptAllBtn.textContent = 'Sync All Changes';
+            } else {
+                acceptAllBtn.textContent = 'Sync Selected Changes';
+            }
+        }
+
+        function toggleSelectAll(checked) {
+            const checkboxes = document.querySelectorAll('.row-checkbox');
+            checkboxes.forEach(cb => {
+                if (!cb.disabled) {
+                    cb.checked = checked;
+                }
+            });
+            updateSyncButtonLabel();
+        }
+
+        function renderDiffs() {
+            const container = document.getElementById('diffContainer');
+            container.innerHTML = '';
+            
+            const summary = document.getElementById('diffSummary');
+            const acceptAllBtn = document.getElementById('acceptAllBtn');
+            const downloadComparisonBtn = document.getElementById('downloadComparisonBtn');
+            
+            document.getElementById('selectAllCheckbox').checked = false;
+
+            if (diffItems.length === 0) {
+                container.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="py-12 text-center text-slate-500">
+                            No differences found. Both servers are in sync!
+                        </td>
+                    </tr>
+                `;
+                summary.classList.add('hidden');
+                acceptAllBtn.classList.add('hidden');
+                downloadComparisonBtn.classList.add('hidden');
+                return;
+            }
+
+            // Read Filter & Sort inputs
+            const searchQuery = (document.getElementById('pathSearchInput').value || "").toLowerCase();
+            const actionFilter = document.getElementById('actionFilterSelect').value;
+            const sortOrder = document.getElementById('pathSortOrder').value;
+            const ignoreSize = document.getElementById('ignoreSizeCheckbox').checked;
+
+            // 1. Filter items
+            let filteredItems = diffItems.filter(item => {
+                // Ignore Size Mismatch filter (skips MODIFY items where sizes differ but modification dates match, or skips all MODIFY if size check is completely ignored)
+                if (ignoreSize && item.actionType === 'MODIFY' && item.baseSize !== item.targetSize && item.baseModified && item.targetModified) {
+                    // Check if only sizes differed (meaning dates are within fatty bounds, but size is different)
+                    // If we ignore size mismatch, we check if they are identical otherwise
+                    if (Math.abs((new Date(item.baseModified) - new Date(item.targetModified)) / 1000) <= 2) {
+                        return false; 
+                    }
+                }
+
+                // Action Filter
+                if (actionFilter !== 'ALL' && item.actionType !== actionFilter) {
+                    return false;
+                }
+
+                // Excel Style Path search
+                const pathVal = (item.relativePath || "").toLowerCase();
+                if (searchQuery && !pathVal.includes(searchQuery)) {
+                    return false;
+                }
+
+                return true;
+            });
+
+            // 2. Sort filtered items: action type first (REMOVE -> ADD -> MODIFY) then relativePath alphabetical order
+            const actionOrder = { "REMOVE": 1, "ADD": 2, "MODIFY": 3 };
+            filteredItems.sort((a, b) => {
+                const orderA = actionOrder[a.actionType] || 99;
+                const orderB = actionOrder[b.actionType] || 99;
+                if (orderA !== orderB) {
+                    return orderA - orderB;
+                }
+                const pathA = (a.relativePath || "").toLowerCase();
+                const pathB = (b.relativePath || "").toLowerCase();
+                return sortOrder === 'ASC' ? pathA.localeCompare(pathB) : pathB.localeCompare(pathA);
+            });
+
+            if (filteredItems.length === 0) {
+                container.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="py-12 text-center text-slate-500">
+                            No differences matching the active filter criteria.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            let adds = 0, removes = 0, modifies = 0;
+            
+            filteredItems.forEach((item) => {
+                if (item.actionType === 'ADD') adds++;
+                if (item.actionType === 'REMOVE') removes++;
+                if (item.actionType === 'MODIFY') modifies++;
+            });
+
+            filteredItems.forEach((item) => {
+                // We need to map the index back to the master diffItems array to trigger sync correctly
+                const originalIndex = diffItems.findIndex(d => d.relativePath === item.relativePath);
+                
+                const tr = document.createElement('tr');
+                
+                // Color formatting
+                let actionColorClass = '';
+                let actionIcon = '';
+                if (item.actionType === 'ADD') {
+                    actionColorClass = 'bg-emerald-50 text-emerald-700 border-l-2 border-emerald-500';
+                    actionIcon = `<span class="px-1.5 py-0.5 rounded text-[10px] bg-emerald-100 text-emerald-800 font-bold">ADD</span>`;
+                } else if (item.actionType === 'REMOVE') {
+                    actionColorClass = 'bg-rose-50 text-rose-700 border-l-2 border-rose-500';
+                    actionIcon = `<span class="px-1.5 py-0.5 rounded text-[10px] bg-rose-100 text-rose-800 font-bold">REMOVE</span>`;
+                } else {
+                    actionColorClass = 'bg-amber-50 text-amber-700 border-l-2 border-amber-500';
+                    actionIcon = `<span class="px-1.5 py-0.5 rounded text-[10px] bg-amber-100 text-amber-800 font-bold">MODIFY</span>`;
+                }
+
+                const sizeBase = item.baseSize !== null ? formatBytes(item.baseSize) : '-';
+                const dateBase = item.baseModified ? new Date(item.baseModified).toLocaleString() : '-';
+                
+                const sizeTarget = item.targetSize !== null ? formatBytes(item.targetSize) : '-';
+                const dateTarget = item.targetModified ? new Date(item.targetModified).toLocaleString() : '-';
+
+                const typeIcon = item.isFolder 
+                    ? `<svg class="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>`
+                    : `<svg class="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>`;
+
+                const isDone = item.status === 'Success';
+                const checkboxHtml = isDone 
+                    ? `<input type="checkbox" disabled class="rounded text-[#d97757] focus:ring-[#d97757] opacity-40">`
+                    : `<input type="checkbox" onchange="updateSyncButtonLabel()" class="row-checkbox rounded text-[#d97757] focus:ring-[#d97757]" data-index="${originalIndex}">`;
+
+                const actionDoneText = isRevertMode ? "Reverted" : "Synced";
+                const actionButtonHtml = isDone
+                    ? `<span class="text-xs text-emerald-600 font-bold">${actionDoneText}</span>`
+                    : `<button onclick="${isRevertMode ? 'revertSingle' : 'syncSingle'}(${originalIndex})" id="syncBtn-${originalIndex}" class="py-1 px-3 bg-[#d97757] hover:bg-[#c86646] text-white rounded text-xs font-semibold transition-all">${isRevertMode ? 'Revert' : 'Accept'}</button>`;
+
+                const pathText = item.relativePath + (item.isFolder && !item.relativePath.endsWith('\\') ? '\\' : '');
+
+                tr.className = `${actionColorClass} hover:bg-slate-100/60 transition-colors`;
+                tr.innerHTML = `
+                    <td class="py-2.5 px-4 text-center">${checkboxHtml}</td>
+                    <td class="py-2.5 px-4 text-center">${typeIcon}</td>
+                    <td class="py-2.5 px-4 font-mono text-xs max-w-md truncate" title="${pathText}">${pathText}</td>
+                    <td class="py-2.5 px-4">${actionIcon}</td>
+                    <td class="py-2.5 px-4 text-xs text-slate-500">
+                        <div>${sizeBase}</div>
+                        <div class="text-[10px] text-slate-400">${dateBase}</div>
+                    </td>
+                    <td class="py-2.5 px-4 text-xs text-slate-500">
+                        <div>${sizeTarget}</div>
+                        <div class="text-[10px] text-slate-400">${dateTarget}</div>
+                    </td>
+                    <td class="py-2.5 px-4 text-center">
+                        ${actionButtonHtml}
+                    </td>
+                    <td class="py-2.5 px-4 text-center font-semibold text-xs text-slate-500" id="status-${originalIndex}">
+                        ${item.status}
+                    </td>
+                `;
+                container.appendChild(tr);
+            });
+
+            document.getElementById('addCount').textContent = adds;
+            document.getElementById('removeCount').textContent = removes;
+            document.getElementById('modifyCount').textContent = modifies;
+
+            summary.classList.remove('hidden');
+            acceptAllBtn.classList.remove('hidden');
+            downloadComparisonBtn.classList.remove('hidden');
+            updateSyncButtonLabel();
+        }
+
+        function downloadComparisonReport() {
+            const baseServer = document.getElementById('baseSnapshotSelect').value;
+            const targetServer = document.getElementById('targetSnapshotSelect').value;
+            
+            const reportData = {
+                title: "Reposync Comparison Report",
+                timestamp: new Date().toISOString(),
+                baseServer,
+                targetServer,
+                differences: diffItems
+            };
+
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(reportData, null, 2));
+            const dlAnchorElem = document.createElement('a');
+            dlAnchorElem.setAttribute("href", dataStr);
+            dlAnchorElem.setAttribute("download", `reposync_comparison_${baseServer}_vs_${targetServer}.json`);
+            dlAnchorElem.click();
+        }
+
+        async function syncSingle(index) {
+            const item = diffItems[index];
+            const baseServer = document.getElementById('baseSnapshotSelect').value;
+            const targetServer = document.getElementById('targetSnapshotSelect').value;
+            
+            const btn = document.getElementById(`syncBtn-${index}`);
+            const statusCell = document.getElementById(`status-${index}`);
+            
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = 'Syncing...';
+            }
+            statusCell.textContent = 'Processing';
+
+            try {
+                const response = await fetch('/api/sync', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        baseServer,
+                        targetServer,
+                        items: [item]
+                    })
+                });
+                
+                const results = await response.json();
+                const updatedItem = results[0];
+                
+                statusCell.textContent = updatedItem.status;
+                if (updatedItem.status === 'Success') {
+                    statusCell.className = 'py-2.5 px-4 text-center font-bold text-xs text-emerald-600';
+                    diffItems[index].status = 'Success';
+                    renderDiffs();
+                } else {
+                    statusCell.className = 'py-2.5 px-4 text-center font-bold text-xs text-rose-600';
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.textContent = 'Accept';
+                    }
+                }
+            } catch (err) {
+                statusCell.textContent = 'Failed';
+                statusCell.className = 'py-2.5 px-4 text-center font-bold text-xs text-rose-600';
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = 'Accept';
+                }
+            }
+        }
+
+        async function syncSelected() {
+            if (isRevertMode) {
+                await executeRevertSelected();
+                return;
+            }
+
+            const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked');
+            const itemsToSync = [];
+            const isAll = selectedCheckboxes.length === 0;
+
+            if (isAll) {
+                // Get all row checkboxes (checked or unchecked) that are not disabled
+                const allCheckboxes = document.querySelectorAll('.row-checkbox');
+                allCheckboxes.forEach(cb => {
+                    if (!cb.disabled) {
+                        const index = parseInt(cb.getAttribute('data-index'));
+                        itemsToSync.push({ item: diffItems[index], idx: index });
+                    }
+                });
+
+                if (itemsToSync.length === 0) {
+                    alert("No changes available to sync.");
+                    return;
+                }
+
+                if (!confirm(`Are you sure you want to sync all ${itemsToSync.length} changes?`)) return;
+            } else {
+                if (!confirm(`Are you sure you want to sync the ${selectedCheckboxes.length} selected action(s)?`)) return;
+                selectedCheckboxes.forEach(cb => {
+                    const index = parseInt(cb.getAttribute('data-index'));
+                    itemsToSync.push({ item: diffItems[index], idx: index });
+                });
+            }
+            
+            const baseServer = document.getElementById('baseSnapshotSelect').value;
+            const targetServer = document.getElementById('targetSnapshotSelect').value;
+
+            const acceptAllBtn = document.getElementById('acceptAllBtn');
+            acceptAllBtn.disabled = true;
+            acceptAllBtn.textContent = isAll ? 'Syncing All...' : 'Syncing Selected...';
+
+            try {
+                const response = await fetch('/api/sync', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        baseServer,
+                        targetServer,
+                        items: itemsToSync.map(x => x.item)
+                    })
+                });
+
+                const results = await response.json();
+                
+                // Map results back
+                results.forEach(res => {
+                    const localItemIdx = diffItems.findIndex(d => d.relativePath === res.relativePath);
+                    if (localItemIdx !== -1) {
+                        diffItems[localItemIdx].status = res.status;
+                    }
+                });
+
+                renderDiffs();
+                loadChangelogs(); // Refresh changelogs on sync completion
+                alert(isAll ? "All sync actions completed." : "Selected sync actions completed.");
+            } catch (err) {
+                alert("Error during sync");
+            } finally {
+                acceptAllBtn.disabled = false;
+                updateSyncButtonLabel();
+            }
+        }
+
+        let isRevertMode = false;
+
+        async function loadChangelogsForPath(targetRootPath) {
+            const selectEl = document.getElementById('logFileSelect');
+            if (!selectEl) return;
+            selectEl.innerHTML = '<option value="">-- Select Changelog --</option>';
+            if (!targetRootPath) return;
+
+            try {
+                const response = await fetch(`/api/logs?targetRootPath=${encodeURIComponent(targetRootPath)}`);
+                if (!response.ok) return;
+                const logs = await response.json();
+                logs.forEach(log => {
+                    const opt = document.createElement('option');
+                    opt.value = log.filename;
+                    opt.textContent = `${log.filename} (${formatBytes(log.sizeBytes)})`;
+                    selectEl.appendChild(opt);
+                });
+            } catch (err) {
+                console.error("Failed to load logs list", err);
+            }
+        }
+
+        function processLogToDiffItems(logData) {
+            const actions = logData.Actions || logData.actions || [];
+            if (!Array.isArray(actions)) {
+                alert("Invalid log format: missing Actions array.");
+                return;
+            }
+
+            diffItems = actions.map(act => {
+                const originalAction = act.ActionType || act.actionType || "";
+                let revertAction = "";
+                if (originalAction === "ADD") revertAction = "REMOVE";
+                else if (originalAction === "REMOVE") revertAction = "ADD";
+                else if (originalAction === "MODIFY") revertAction = "MODIFY";
+
+                return {
+                    relativePath: act.RelativePath || act.relativePath || "",
+                    isFolder: act.IsFolder !== undefined ? act.IsFolder : (act.isFolder || false),
+                    actionType: revertAction,
+                    baseSize: act.BaseSize !== undefined ? act.BaseSize : (act.baseSize || null),
+                    targetSize: act.TargetSize !== undefined ? act.TargetSize : (act.targetSize || null),
+                    baseModified: act.BaseModified || act.baseModified || null,
+                    targetModified: act.TargetModified || act.targetModified || null,
+                    status: "Pending",
+                    baseRootPath: act.BaseRootPath || act.baseRootPath || "",
+                    targetRootPath: act.TargetRootPath || act.targetRootPath || ""
+                };
+            });
+
+            isRevertMode = true;
+            if (document.getElementById('revertModeIndicator')) {
+                document.getElementById('revertModeIndicator').classList.remove('hidden');
+            }
+            renderDiffs();
+        }
+
+        async function loadSelectedLogToServer() {
+            const filename = document.getElementById('logFileSelect').value;
+            if (!filename) {
+                alert("Please select a changelog from the list first.");
+                return;
+            }
+            let targetRootPath = "";
+            if (diffItems.length > 0) {
+                targetRootPath = diffItems[0].targetRootPath || diffItems[0].TargetRootPath;
+            }
+            if (!targetRootPath) {
+                alert("Target root path not resolved. Please compare first.");
+                return;
+            }
+            try {
+                const response = await fetch(`/api/logs/download?targetRootPath=${encodeURIComponent(targetRootPath)}&filename=${filename}`);
+                if (!response.ok) {
+                    alert("Failed to download selected log from server.");
+                    return;
+                }
+                const logData = await response.json();
+                processLogToDiffItems(logData);
+            } catch (err) {
+                alert("Error loading log file: " + err.message);
+            }
+        }
+
+        function downloadSelectedLog() {
+            const filename = document.getElementById('logFileSelect').value;
+            if (!filename) {
+                alert("Please select a changelog first.");
+                return;
+            }
+            let targetRootPath = "";
+            if (diffItems.length > 0) {
+                targetRootPath = diffItems[0].targetRootPath || diffItems[0].TargetRootPath;
+            }
+            if (!targetRootPath) {
+                alert("Target root path not resolved. Please compare first.");
+                return;
+            }
+            window.open(`/api/logs/download?targetRootPath=${encodeURIComponent(targetRootPath)}&filename=${filename}`, '_blank');
+        }
+
+        function handleLogUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const logData = JSON.parse(e.target.result);
+                    processLogToDiffItems(logData);
+                } catch (err) {
+                    alert("Failed to parse uploaded log JSON: " + err.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function exitRevertMode() {
+            isRevertMode = false;
+            if (document.getElementById('revertModeIndicator')) {
+                document.getElementById('revertModeIndicator').classList.add('hidden');
+            }
+            diffItems = [];
+            renderDiffs();
+            document.getElementById('logFileUpload').value = "";
+        }
+
+        async function revertSingle(index) {
+            const item = diffItems[index];
+            
+            const btn = document.getElementById(`syncBtn-${index}`);
+            const statusCell = document.getElementById(`status-${index}`);
+            
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = 'Reverting...';
+            }
+            statusCell.textContent = 'Processing';
+
+            try {
+                const response = await fetch('/api/revert', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        items: [item]
+                    })
+                });
+                
+                const results = await response.json();
+                const updatedItem = results[0];
+                
+                statusCell.textContent = updatedItem.status;
+                if (updatedItem.status === 'Success') {
+                    statusCell.className = 'py-2.5 px-4 text-center font-bold text-xs text-emerald-600';
+                    diffItems[index].status = 'Success';
+                    renderDiffs();
+                } else {
+                    statusCell.className = 'py-2.5 px-4 text-center font-bold text-xs text-rose-600';
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.textContent = 'Revert';
+                    }
+                }
+            } catch (err) {
+                statusCell.textContent = 'Failed';
+                statusCell.className = 'py-2.5 px-4 text-center font-bold text-xs text-rose-600';
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = 'Revert';
+                }
+            }
+        }
+
+        async function executeRevertSelected() {
+            const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked');
+            const itemsToRevert = [];
+            const isAll = selectedCheckboxes.length === 0;
+
+            if (isAll) {
+                const allCheckboxes = document.querySelectorAll('.row-checkbox');
+                allCheckboxes.forEach(cb => {
+                    if (!cb.disabled) {
+                        const index = parseInt(cb.getAttribute('data-index'));
+                        itemsToRevert.push({ item: diffItems[index], idx: index });
+                    }
+                });
+
+                if (itemsToRevert.length === 0) {
+                    alert("No changes available to revert.");
+                    return;
+                }
+
+                if (!confirm(`Are you sure you want to revert all ${itemsToRevert.length} changes?`)) return;
+            } else {
+                if (!confirm(`Are you sure you want to revert the ${selectedCheckboxes.length} selected action(s)?`)) return;
+                selectedCheckboxes.forEach(cb => {
+                    const index = parseInt(cb.getAttribute('data-index'));
+                    itemsToRevert.push({ item: diffItems[index], idx: index });
+                });
+            }
+            
+            const acceptAllBtn = document.getElementById('acceptAllBtn');
+            acceptAllBtn.disabled = true;
+            acceptAllBtn.textContent = isAll ? 'Reverting All...' : 'Reverting Selected...';
+
+            try {
+                const response = await fetch('/api/revert', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        items: itemsToRevert.map(x => x.item)
+                    })
+                });
+
+                const results = await response.json();
+                
+                results.forEach(res => {
+                    const localItemIdx = diffItems.findIndex(d => d.relativePath === res.relativePath);
+                    if (localItemIdx !== -1) {
+                        diffItems[localItemIdx].status = res.status;
+                    }
+                });
+
+                renderDiffs();
+                alert(isAll ? "All revert actions completed." : "Selected revert actions completed.");
+            } catch (err) {
+                alert("Error during revert");
+            } finally {
+                acceptAllBtn.disabled = false;
+                updateSyncButtonLabel();
+            }
+        }
+
+        function formatBytes(bytes, decimals = 2) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
+
