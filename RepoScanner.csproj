@@ -10,4 +10,8 @@
     <PublishReadyToRun>true</PublishReadyToRun>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="MiniExcel" Version="1.44.1" />
+  </ItemGroup>
+
 </Project>

@@ -351,3 +351,6 @@ C:\Users\sabar\OneDrive\Desktop\VS\tool\repo sync\obj\Debug\net8.0\win-x64\refin
 C:\Users\sabar\OneDrive\Desktop\VS\tool\repo sync\obj\Debug\net8.0\win-x64\RepoScanner.pdb
 C:\Users\sabar\OneDrive\Desktop\VS\tool\repo sync\obj\Debug\net8.0\win-x64\RepoScanner.genruntimeconfig.cache
 C:\Users\sabar\OneDrive\Desktop\VS\tool\repo sync\obj\Debug\net8.0\win-x64\ref\RepoScanner.dll
+C:\Users\sabar\OneDrive\Desktop\VS\tool\repo sync\obj\Debug\net8.0\win-x64\RepoScanner.sourcelink.json
+C:\Users\sabar\OneDrive\Desktop\VS\tool\repo sync\bin\Debug\net8.0\win-x64\MiniExcel.dll
+C:\Users\sabar\OneDrive\Desktop\VS\tool\repo sync\obj\Debug\net8.0\win-x64\RepoScanner.csproj.AssemblyReference.cache

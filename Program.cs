@@ -10,6 +10,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using RepoScanner.Models;
 using RepoScanner.Services;
+using System.Linq;
+using MiniExcelLibs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -209,6 +211,244 @@ app.MapPost("/api/compare", (CompareRequest req) =>
 
     var diffs = DiffEngine.CompareSnapshots(baseSnap, targetSnap);
     return Results.Ok(diffs);
+});
+
+// 6.5 Download Excel Comparison Report
+app.MapPost("/api/compare/excel-download", (CompareRequest req) =>
+{
+    string baseSnapPath = Path.Combine(GetSnapshotDir(), $"snapshot_{req.BaseServer}.json");
+    string targetSnapPath = Path.Combine(GetSnapshotDir(), $"snapshot_{req.TargetServer}.json");
+
+    if (!File.Exists(baseSnapPath) || !File.Exists(targetSnapPath))
+    {
+        return Results.BadRequest("Snapshots for one or both servers do not exist in cache. Please perform a scan first.");
+    }
+
+    var baseSnap = JsonSerializer.Deserialize<ScanSnapshot>(File.ReadAllText(baseSnapPath));
+    var targetSnap = JsonSerializer.Deserialize<ScanSnapshot>(File.ReadAllText(targetSnapPath));
+
+    if (baseSnap == null || targetSnap == null)
+    {
+        return Results.BadRequest("Failed to load one or both snapshots.");
+    }
+
+    var diffs = DiffEngine.CompareSnapshots(baseSnap, targetSnap);
+    
+    var memoryStream = new MemoryStream();
+    var rows = diffs.Select(d => new {
+        Accept = false,
+        RelativePath = d.RelativePath,
+        ActionType = d.ActionType,
+        IsFolder = d.IsFolder,
+        BaseSize = d.BaseSize,
+        TargetSize = d.TargetSize,
+        BaseModified = d.BaseModified,
+        TargetModified = d.TargetModified,
+        BaseRootPath = d.BaseRootPath,
+        TargetRootPath = d.TargetRootPath,
+        Name = d.Name,
+        Status = d.Status
+    });
+    
+    MiniExcel.SaveAs(memoryStream, rows);
+    memoryStream.Position = 0;
+    
+    return Results.File(memoryStream, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"reposync_comparison_{req.BaseServer}_vs_{req.TargetServer}.xlsx");
+});
+
+// 6.6 Upload Excel to Sync Changes
+app.MapPost("/api/compare/excel-upload", async (HttpRequest request) =>
+{
+    if (!request.HasFormContentType) return Results.BadRequest("Expected a multipart form content type.");
+    var form = await request.ReadFormAsync();
+    var file = form.Files.GetFile("file");
+    if (file == null || file.Length == 0) return Results.BadRequest("No file uploaded.");
+
+    string baseServer = form["baseServer"].ToString();
+    string targetServer = form["targetServer"].ToString();
+
+    if (string.IsNullOrEmpty(baseServer) || string.IsNullOrEmpty(targetServer))
+    {
+        return Results.BadRequest("baseServer and targetServer names are required.");
+    }
+
+    var tempPath = Path.GetTempFileName();
+    using (var stream = new FileStream(tempPath, FileMode.Create))
+    {
+        await file.CopyToAsync(stream);
+    }
+
+    List<DiffItem> itemsToSync = new();
+    try
+    {
+        var rows = MiniExcel.Query(tempPath, excelType: ExcelType.XLSX).ToList();
+        foreach (IDictionary<string, object> row in rows.Skip(1)) // Skip header row
+        {
+            string getVal(params string[] keys)
+            {
+                foreach (var k in keys)
+                {
+                    if (row.TryGetValue(k, out var val) && val != null)
+                        return val.ToString()!;
+                }
+                return "";
+            }
+
+            bool getBool(params string[] keys)
+            {
+                var valStr = getVal(keys).ToLowerInvariant();
+                return valStr == "true" || valStr == "1" || valStr == "yes" || valStr == "y" || valStr == "checked";
+            }
+
+            long? getLong(params string[] keys)
+            {
+                var valStr = getVal(keys);
+                return long.TryParse(valStr, out var res) ? res : null;
+            }
+
+            DateTime? getDate(params string[] keys)
+            {
+                var valStr = getVal(keys);
+                return DateTime.TryParse(valStr, out var res) ? res : null;
+            }
+
+            bool accept = getBool("A", "Accept");
+            if (!accept) continue;
+
+            var item = new DiffItem
+            {
+                RelativePath = getVal("B", "RelativePath"),
+                ActionType = getVal("C", "ActionType"),
+                IsFolder = getBool("D", "IsFolder"),
+                BaseSize = getLong("E", "BaseSize"),
+                TargetSize = getLong("F", "TargetSize"),
+                BaseModified = getDate("G", "BaseModified"),
+                TargetModified = getDate("H", "TargetModified"),
+                BaseRootPath = getVal("I", "BaseRootPath"),
+                TargetRootPath = getVal("J", "TargetRootPath"),
+                Name = getVal("K", "Name"),
+                Status = "Pending"
+            };
+            itemsToSync.Add(item);
+        }
+    }
+    finally
+    {
+        if (File.Exists(tempPath)) File.Delete(tempPath);
+    }
+
+    if (itemsToSync.Count == 0)
+    {
+        return Results.BadRequest("No accepted items found in the Excel sheet (make sure column A is marked TRUE/checked/1).");
+    }
+
+    string targetRootPath = itemsToSync[0].TargetRootPath;
+    if (string.IsNullOrEmpty(targetRootPath))
+    {
+        string targetSnapPath = Path.Combine(GetSnapshotDir(), $"snapshot_{targetServer}.json");
+        if (File.Exists(targetSnapPath))
+        {
+            var targetSnap = JsonSerializer.Deserialize<ScanSnapshot>(File.ReadAllText(targetSnapPath));
+            targetRootPath = targetSnap?.RootPath ?? "";
+        }
+    }
+
+    if (string.IsNullOrEmpty(targetRootPath))
+    {
+        return Results.BadRequest("Target server root path not resolved in items or snapshot.");
+    }
+
+    // Ensure all items have root paths set if they were missing in Excel
+    foreach (var item in itemsToSync)
+    {
+        if (string.IsNullOrEmpty(item.TargetRootPath))
+        {
+            item.TargetRootPath = targetRootPath;
+        }
+        if (string.IsNullOrEmpty(item.BaseRootPath))
+        {
+            string baseSnapPath = Path.Combine(GetSnapshotDir(), $"snapshot_{baseServer}.json");
+            if (File.Exists(baseSnapPath))
+            {
+                var baseSnap = JsonSerializer.Deserialize<ScanSnapshot>(File.ReadAllText(baseSnapPath));
+                item.BaseRootPath = baseSnap?.RootPath ?? "";
+            }
+        }
+    }
+
+    var resolvedItems = new List<DiffItem>();
+    foreach (var item in itemsToSync)
+    {
+        var resolved = await SyncController.ResolveActionAsync(item, item.TargetRootPath);
+        resolvedItems.Add(resolved);
+    }
+
+    // Write Sync Action Report (JSON)
+    try
+    {
+        string logsBackupRoot = Path.Combine(targetRootPath, "__reposync", "logs");
+        Directory.CreateDirectory(logsBackupRoot);
+        
+        string reportFilename = $"sync_report_{targetServer}_to_{baseServer}.json";
+        string reportFullPath = Path.Combine(logsBackupRoot, reportFilename);
+        
+        List<object> allActions = new List<object>();
+        
+        if (File.Exists(reportFullPath))
+        {
+            try
+            {
+                var existingJson = File.ReadAllText(reportFullPath);
+                var existingData = JsonSerializer.Deserialize<JsonElement>(existingJson);
+                if (existingData.TryGetProperty("Actions", out var actionsProp) && actionsProp.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var elem in actionsProp.EnumerateArray())
+                    {
+                        var deserializedElem = JsonSerializer.Deserialize<object>(elem.GetRawText());
+                        if (deserializedElem != null)
+                        {
+                            allActions.Add(deserializedElem);
+                        }
+                    }
+                }
+            }
+            catch {}
+        }
+        
+        foreach (var item in resolvedItems)
+        {
+            allActions.Add(new {
+                item.RelativePath,
+                item.Name,
+                item.IsFolder,
+                item.ActionType,
+                item.BaseSize,
+                item.TargetSize,
+                item.BaseModified,
+                item.TargetModified,
+                item.Status,
+                Timestamp = DateTime.UtcNow,
+                item.BaseRootPath,
+                item.TargetRootPath
+            });
+        }
+        
+        var reportData = new
+        {
+            SourceServer = baseServer,
+            TargetServer = targetServer,
+            LastSyncTimestamp = DateTime.UtcNow,
+            Actions = allActions
+        };
+        
+        File.WriteAllText(reportFullPath, JsonSerializer.Serialize(reportData, new JsonSerializerOptions { WriteIndented = true }));
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Excel Sync Report Error: {ex.Message}");
+    }
+
+    return Results.Ok(resolvedItems);
 });
 
 // 7. Real-Time Sync Action

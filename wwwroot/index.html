@@ -164,8 +164,18 @@
                         <button onclick="compareServers()" class="py-1.5 px-4 bg-slate-800 hover:bg-slate-700 text-white font-semibold rounded-lg text-xs transition-all shadow-md flex items-center gap-2">
                             Compare Base & Target
                         </button>
-                        <button id="downloadComparisonBtn" onclick="downloadComparisonReport()" class="hidden py-1.5 px-3 bg-white hover:bg-slate-50 border border-[#e8e5dd] text-slate-700 rounded-lg text-xs font-semibold transition-all">
-                            Download Comparison Report
+                        <button id="downloadExcelBtn" onclick="downloadExcelReport()" class="py-1.5 px-3 bg-emerald-700 hover:bg-emerald-600 text-white rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm">
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            Download Excel Report
+                        </button>
+                        <input type="file" id="excelReportUpload" accept=".xlsx" onchange="handleExcelUpload(event)" class="hidden">
+                        <button id="uploadExcelBtn" onclick="document.getElementById('excelReportUpload').click()" class="py-1.5 px-3 bg-white hover:bg-slate-50 border border-[#e8e5dd] text-slate-700 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm">
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                            </svg>
+                            Upload Excel Report
                         </button>
                         <div id="diffSummary" class="text-xs text-slate-500 hidden">
                             Found <span id="addCount" class="text-emerald-600 font-bold">0</span> additions, 
@@ -216,7 +226,7 @@
                 </div>
 
                 <!-- Excel Style Filtering and sorting controls -->
-                <div class="flex gap-4 items-center bg-white p-2.5 rounded-lg border border-[#e8e5dd]">
+                <div id="filterControlsArea" class="hidden flex gap-4 items-center bg-white p-2.5 rounded-lg border border-[#e8e5dd]">
                     <div class="flex-1 flex items-center gap-2">
                         <span class="text-xs font-semibold text-slate-500 whitespace-nowrap">Search Path:</span>
                         <input type="text" id="pathSearchInput" oninput="renderDiffs()" placeholder="Filter paths like Excel... (e.g. folder/file)" class="w-full text-xs bg-[#faf9f5] border border-[#e8e5dd] rounded px-3 py-1.5 focus:outline-none focus:border-[#d97757]">
@@ -240,8 +250,19 @@
                 </div>
             </div>
 
+            <!-- Empty State Area -->
+            <div id="emptyStateArea" class="flex-1 flex flex-col items-center justify-center p-8 text-center bg-white">
+                <div class="h-16 w-16 rounded-2xl bg-[#faf9f5] border border-[#e8e5dd] flex items-center justify-center text-[#d97757] shadow-sm mb-4">
+                    <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                </div>
+                <h3 class="text-sm font-bold text-slate-700 mb-1">No Active Report</h3>
+                <p id="emptyStateText" class="text-xs text-slate-400 max-w-sm">Select snapshots to compare or upload an Excel report to begin synchronization.</p>
+            </div>
+
             <!-- Diff Table -->
-            <div class="flex-1 overflow-auto">
+            <div id="diffTableArea" class="hidden flex-1 overflow-auto">
                 <table class="w-full text-left border-collapse">
                     <thead>
                         <tr class="border-b border-[#e8e5dd] bg-[#faf9f5] text-slate-500 text-xs font-semibold uppercase tracking-wider sticky top-0 z-10">
@@ -258,20 +279,85 @@
                         </tr>
                     </thead>
                     <tbody id="diffContainer" class="divide-y divide-[#e8e5dd] text-sm text-slate-700">
-                        <tr>
-                            <td colspan="8" class="py-12 text-center text-slate-400">
-                                Select a Base and Target server, and click "Compare Base & Target" to view diffs.
-                            </td>
-                        </tr>
                     </tbody>
                 </table>
             </div>
+
+            <!-- Floating Notification Toaster -->
+            <div id="toastContainer" class="fixed bottom-4 left-4 z-50 pointer-events-none flex flex-col gap-2"></div>
         </section>
     </main>
 
     <script>
         let diffItems = [];
         let blacklistRules = JSON.parse(localStorage.getItem('blacklistRules') || '[]');
+        let hasCompared = false;
+
+        function showNotification(message, type = 'info', duration = 0) {
+            const container = document.getElementById('toastContainer');
+            if (!container) return null;
+
+            const toast = document.createElement('div');
+            toast.className = `pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg border transition-all duration-300 transform translate-y-4 opacity-0 text-xs font-semibold bg-white border-[#e8e5dd] text-slate-700`;
+            
+            let iconHtml = '';
+            if (type === 'loading') {
+                iconHtml = `
+                    <svg class="animate-spin h-4 w-4 text-[#d97757]" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                `;
+            } else if (type === 'success') {
+                iconHtml = `
+                    <svg class="h-4 w-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                `;
+            } else {
+                iconHtml = `
+                    <svg class="h-4 w-4 text-[#d97757]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                `;
+            }
+
+            toast.innerHTML = `
+                ${iconHtml}
+                <div>${message}</div>
+            `;
+
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.classList.remove('translate-y-4', 'opacity-0');
+            }, 10);
+
+            const removeToast = () => {
+                toast.classList.add('translate-y-4', 'opacity-0');
+                setTimeout(() => {
+                    toast.remove();
+                }, 300);
+            };
+
+            if (duration > 0) {
+                setTimeout(removeToast, duration);
+            }
+
+            return {
+                update: (newMessage, newType = 'info') => {
+                    toast.querySelector('div').textContent = newMessage;
+                    if (newType === 'success') {
+                        toast.querySelector('svg').outerHTML = `
+                            <svg class="h-4 w-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                        `;
+                    }
+                },
+                close: removeToast
+            };
+        }
 
         async function init() {
             updateBlacklistUI();
@@ -433,6 +519,7 @@
                 return;
             }
             
+            const toast = showNotification(`Scanning & saving snapshot for "${scanName}"...`, "loading");
             try {
                 const response = await fetch('/api/scan', {
                     method: 'POST',
@@ -446,13 +533,16 @@
 
                 if (!response.ok) {
                     const err = await response.ok ? "" : await response.text();
+                    toast.close();
                     alert("Scan Failed: " + err);
                     return;
                 }
                 
                 await loadSnapshots();
-                alert(`Scan complete. Snapshot saved as snapshot_${scanName}.json`);
+                toast.update("Scan complete & snapshot saved!", "success");
+                setTimeout(() => toast.close(), 3000);
             } catch (err) {
+                toast.close();
                 alert("Error triggering scan");
             }
         }
@@ -465,6 +555,8 @@
                 return;
             }
             
+            hasCompared = true;
+            const toast = showNotification("Comparing repository snapshots...", "loading");
             try {
                 const response = await fetch('/api/compare', {
                     method: 'POST',
@@ -474,6 +566,7 @@
 
                 if (!response.ok) {
                     const errTxt = await response.text();
+                    toast.close();
                     alert("Comparison Error: " + errTxt);
                     return;
                 }
@@ -507,7 +600,9 @@
                 }
                 
                 renderDiffs();
+                toast.close();
             } catch (err) {
+                if (typeof toast !== 'undefined' && toast) toast.close();
                 console.error(err);
             }
         }
@@ -553,22 +648,32 @@
             
             const summary = document.getElementById('diffSummary');
             const acceptAllBtn = document.getElementById('acceptAllBtn');
-            const downloadComparisonBtn = document.getElementById('downloadComparisonBtn');
             
             document.getElementById('selectAllCheckbox').checked = false;
 
+            const emptyArea = document.getElementById('emptyStateArea');
+            const filterArea = document.getElementById('filterControlsArea');
+            const tableArea = document.getElementById('diffTableArea');
+            const emptyText = document.getElementById('emptyStateText');
+
             if (diffItems.length === 0) {
-                container.innerHTML = `
-                    <tr>
-                        <td colspan="8" class="py-12 text-center text-slate-500">
-                            No differences found. Both servers are in sync!
-                        </td>
-                    </tr>
-                `;
+                if (emptyArea) emptyArea.classList.remove('hidden');
+                if (filterArea) filterArea.classList.add('hidden');
+                if (tableArea) tableArea.classList.add('hidden');
+                if (emptyText) {
+                    if (hasCompared) {
+                        emptyText.innerHTML = `<span class="text-emerald-600 font-bold">Both servers are in sync!</span> No differences found.`;
+                    } else {
+                        emptyText.textContent = "Select snapshots to compare or upload an Excel report to begin synchronization.";
+                    }
+                }
                 summary.classList.add('hidden');
                 acceptAllBtn.classList.add('hidden');
-                downloadComparisonBtn.classList.add('hidden');
                 return;
+            } else {
+                if (emptyArea) emptyArea.classList.add('hidden');
+                if (filterArea) filterArea.classList.remove('hidden');
+                if (tableArea) tableArea.classList.remove('hidden');
             }
 
             // Read Filter & Sort inputs
@@ -706,28 +811,110 @@
 
             summary.classList.remove('hidden');
             acceptAllBtn.classList.remove('hidden');
-            downloadComparisonBtn.classList.remove('hidden');
             updateSyncButtonLabel();
         }
 
-        function downloadComparisonReport() {
+        async function downloadExcelReport() {
             const baseServer = document.getElementById('baseSnapshotSelect').value;
             const targetServer = document.getElementById('targetSnapshotSelect').value;
-            
-            const reportData = {
-                title: "Reposync Comparison Report",
-                timestamp: new Date().toISOString(),
-                baseServer,
-                targetServer,
-                differences: diffItems
-            };
-
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(reportData, null, 2));
-            const dlAnchorElem = document.createElement('a');
-            dlAnchorElem.setAttribute("href", dataStr);
-            dlAnchorElem.setAttribute("download", `reposync_comparison_${baseServer}_vs_${targetServer}.json`);
-            dlAnchorElem.click();
+            if (!baseServer || !targetServer) {
+                alert("Please select base and target snapshot first.");
+                return;
+            }
+            const toast = showNotification("Generating and downloading Excel report...", "loading");
+            try {
+                const response = await fetch('/api/compare/excel-download', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ baseServer, targetServer })
+                });
+                if (!response.ok) {
+                    toast.close();
+                    alert("Failed to download Excel report.");
+                    return;
+                }
+                const blob = await response.blob();
+                const dlAnchorElem = document.createElement('a');
+                dlAnchorElem.href = URL.createObjectURL(blob);
+                dlAnchorElem.download = `reposync_comparison_${baseServer}_vs_${targetServer}.xlsx`;
+                dlAnchorElem.click();
+                toast.close();
+            } catch (err) {
+                toast.close();
+                alert("Error downloading Excel: " + err.message);
+            }
         }
+
+        async function handleExcelUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const baseServer = document.getElementById('baseSnapshotSelect').value;
+            const targetServer = document.getElementById('targetSnapshotSelect').value;
+            if (!baseServer || !targetServer) {
+                alert("Please select base and target first so we know which servers you are syncing.");
+                event.target.value = '';
+                return;
+            }
+
+            if (!confirm(`Are you sure you want to upload this Excel sheet and apply accepted sync changes to ${targetServer}?`)) {
+                event.target.value = '';
+                return;
+            }
+
+            hasCompared = true;
+            const toast = showNotification("Uploading Excel and synchronizing changes...", "loading");
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("baseServer", baseServer);
+            formData.append("targetServer", targetServer);
+
+            try {
+                const uploadBtn = document.getElementById('uploadExcelBtn');
+                uploadBtn.disabled = true;
+                uploadBtn.textContent = 'Processing Excel...';
+
+                const response = await fetch('/api/compare/excel-upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const errorMsg = await response.text();
+                    toast.close();
+                    alert("Sync failed: " + errorMsg);
+                    return;
+                }
+
+                const results = await response.json();
+                
+                // Map results back to update UI state
+                results.forEach(res => {
+                    const localItemIdx = diffItems.findIndex(d => d.relativePath === res.relativePath);
+                    if (localItemIdx !== -1) {
+                        diffItems[localItemIdx].status = res.status;
+                    }
+                });
+
+                renderDiffs();
+                toast.update("Excel sync completed successfully!", "success");
+                setTimeout(() => toast.close(), 3000);
+            } catch (err) {
+                toast.close();
+                alert("Error during Excel upload: " + err.message);
+            } finally {
+                event.target.value = '';
+                const uploadBtn = document.getElementById('uploadExcelBtn');
+                uploadBtn.disabled = false;
+                uploadBtn.innerHTML = `
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                    Upload Excel Report
+                `;
+            }
+        }
+
 
         async function syncSingle(index) {
             const item = diffItems[index];
