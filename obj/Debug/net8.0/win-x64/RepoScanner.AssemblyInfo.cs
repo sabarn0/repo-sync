@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("RepoScanner")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7c91f43b30bb1c2b5c5912ecfe0fa093f13fba29")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+334358a78ea89b7c21cf9d2836456b29574fc209")]
 [assembly: System.Reflection.AssemblyProductAttribute("RepoScanner")]
 [assembly: System.Reflection.AssemblyTitleAttribute("RepoScanner")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

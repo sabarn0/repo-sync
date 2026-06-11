@@ -15,11 +15,13 @@ namespace RepoScanner.Services
             var inventory = new ConcurrentBag<FileInventoryItem>();
             var scannedAt = DateTime.UtcNow;
 
-            var blacklists = blacklist.Select(b => (dynamic)new
-            {
-                // Normalize slashes and trim trailing slash
-                Path = b.Path.Replace("/", "\\").TrimEnd('\\').ToLowerInvariant(),
-                b.IgnoreCondition
+            var blacklists = blacklist.Select(b => {
+                string p = b.Path.Replace("/", "\\").ToLowerInvariant();
+                if (!p.Contains("*") && !p.Contains("?") && !p.Contains("^") && !p.Contains("$"))
+                {
+                    p = p.TrimEnd('\\');
+                }
+                return (dynamic)new { Path = p, b.IgnoreCondition };
             }).ToList();
 
             if (Directory.Exists(rootPath))
@@ -64,7 +66,7 @@ namespace RepoScanner.Services
                 // Check entire folder blacklist
                 var folderIgnore = blacklists.FirstOrDefault(b => 
                     b.IgnoreCondition == "IGNORE_ENTIRE_FOLDER" && 
-                    (relativePathLower == b.Path || relativePathLower.StartsWith(b.Path + "\\"))
+                    PathMatchesPattern(relativePathLower, b.Path)
                 );
 
                 if (folderIgnore != null)
@@ -75,7 +77,7 @@ namespace RepoScanner.Services
                 // Check ignore files only condition
                 var filesIgnore = blacklists.FirstOrDefault(b => 
                     b.IgnoreCondition == "IGNORE_FILES_ONLY" && 
-                    (relativePathLower == b.Path || relativePathLower.StartsWith(b.Path + "\\"))
+                    PathMatchesPattern(relativePathLower, b.Path)
                 );
 
                 // Ignore hidden/system folders (like $RECYCLE.BIN, System Volume Information)
@@ -152,6 +154,47 @@ namespace RepoScanner.Services
             {
                 // Gracefully catch security/IO exceptions for scanning robustly
             }
+        }
+
+        private static bool PathMatchesPattern(string relativePath, string pattern)
+        {
+            if (string.IsNullOrEmpty(pattern)) return false;
+
+            string normalizedPath = relativePath.Replace("/", "\\").ToLowerInvariant();
+            string pathWithTrailing = normalizedPath.EndsWith("\\") ? normalizedPath : normalizedPath + "\\";
+            string normalizedPattern = pattern.Replace("/", "\\").ToLowerInvariant();
+
+            // 1. Try wildcard pattern matching
+            if (normalizedPattern.Contains("*") || normalizedPattern.Contains("?"))
+            {
+                try
+                {
+                    string regexPattern = "^" + System.Text.RegularExpressions.Regex.Escape(normalizedPattern)
+                                                     .Replace("\\*", ".*")
+                                                     .Replace("\\?", ".") + "$";
+                    
+                    if (System.Text.RegularExpressions.Regex.IsMatch(normalizedPath, regexPattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase) ||
+                        System.Text.RegularExpressions.Regex.IsMatch(pathWithTrailing, regexPattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+                    {
+                        return true;
+                    }
+                }
+                catch {}
+            }
+
+            // 2. Try raw Regex matching
+            try
+            {
+                if (System.Text.RegularExpressions.Regex.IsMatch(normalizedPath, normalizedPattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase) ||
+                    System.Text.RegularExpressions.Regex.IsMatch(pathWithTrailing, normalizedPattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+                {
+                    return true;
+                }
+            }
+            catch {}
+
+            // 3. Fallback
+            return normalizedPath == normalizedPattern || normalizedPath.StartsWith(normalizedPattern + "\\");
         }
     }
 }

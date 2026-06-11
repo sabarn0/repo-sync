@@ -1,0 +1,17 @@
+{
+  "ServerName": "test2",
+  "RootPath": "C:\\Users\\sabar\\OneDrive\\Desktop\\VS\\test\\v1",
+  "ScannedAt": "2026-06-11T21:24:02.0886096Z",
+  "TotalFiles": 0,
+  "TotalFolders": 1,
+  "Inventory": [
+    {
+      "Name": "New folder",
+      "RelativePath": "New folder",
+      "IsFolder": true,
+      "Size": 0,
+      "LastModified": "2026-06-11T21:23:39.8874549Z",
+      "RootPath": "C:\\Users\\sabar\\OneDrive\\Desktop\\VS\\test\\v1"
+    }
+  ]
+}

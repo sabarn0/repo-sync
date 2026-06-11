@@ -47,6 +47,23 @@
         ::-webkit-scrollbar-thumb:hover {
             background: #c8c6c0;
         }
+
+        /* Animations */
+        @keyframes float-up {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-3px); }
+        }
+        .animate-float-up {
+            animation: float-up 2.2s ease-in-out infinite;
+        }
+
+        @keyframes download-bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(2.5px); }
+        }
+        .animate-download {
+            animation: download-bounce 1.6s ease-in-out infinite;
+        }
     </style>
 </head>
 <body class="h-full flex flex-col overflow-hidden text-slate-800">
@@ -139,6 +156,44 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Sync History & Reverts Panel -->
+            <div class="border border-[#e8e5dd] rounded-xl bg-[#faf9f5] overflow-hidden shadow-sm">
+                <button onclick="togglePanel('changelogPanel')" class="w-full flex items-center justify-between p-3 bg-white font-semibold text-xs text-slate-700 hover:bg-slate-50 transition-all border-b border-[#e8e5dd]">
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Sync History & Reverts</span>
+                    <svg id="changelogPanelChevron" class="w-4 h-4 text-slate-400 transition-transform duration-200 transform -rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+                <div id="changelogPanel" class="hidden p-3 space-y-3 bg-white">
+                    <div class="space-y-1">
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase">Select Changelog</label>
+                        <select id="logFileSelect" class="w-full text-xs bg-[#faf9f5] border border-[#e8e5dd] rounded px-2.5 py-1.5 focus:outline-none focus:border-[#d97757]">
+                            <option value="">-- Select Changelog --</option>
+                        </select>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="downloadSelectedLog()" class="flex-1 py-1.5 px-2 bg-white hover:bg-slate-50 border border-[#e8e5dd] text-slate-700 rounded-lg text-[10px] font-semibold transition-all">
+                            Download Log
+                        </button>
+                        <button onclick="loadSelectedLogToServer()" class="flex-1 py-1.5 px-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-[10px] font-semibold transition-all">
+                            Load Revert
+                        </button>
+                    </div>
+                    <div class="border-t border-[#e8e5dd] my-2"></div>
+                    <div class="space-y-1">
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase">Upload Changelog JSON</label>
+                        <input type="file" id="logFileUpload" accept=".json" onchange="handleLogUpload(event)" class="hidden">
+                        <label for="logFileUpload" class="cursor-pointer block text-center py-1.5 px-3 bg-white hover:bg-slate-50 border border-[#e8e5dd] text-slate-700 rounded-lg text-xs font-semibold transition-all">
+                            Choose & Upload JSON
+                        </label>
+                    </div>
+                    <div id="revertModeIndicator" class="hidden text-center p-2 rounded-lg bg-rose-50 border border-rose-100">
+                        <div class="text-[11px] font-bold text-rose-800 animate-pulse">Revert Mode Active</div>
+                        <button onclick="exitRevertMode()" class="mt-1 text-[10px] text-rose-600 hover:text-rose-800 underline font-semibold">Exit Revert Mode</button>
+                    </div>
+                </div>
+            </div>
         </aside>
 
         <!-- Right Workspace: Comparison View -->
@@ -146,80 +201,49 @@
             
             <!-- Comparison Controls -->
             <div class="p-4 border-b border-[#e8e5dd] bg-[#faf9f5] flex flex-col gap-3 shrink-0">
-                <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="flex flex-wrap items-center justify-between gap-3 w-full">
+                    <!-- Left: Server selects, compare and summary stats -->
                     <div class="flex flex-wrap items-center gap-3">
                         <div class="flex items-center gap-2">
-                            <span class="text-xs font-semibold text-slate-500 whitespace-nowrap">Base Snapshot:</span>
+                            <span class="text-xs font-semibold text-slate-500 whitespace-nowrap">Base:</span>
                             <select id="baseSnapshotSelect" class="text-xs bg-white border border-[#e8e5dd] rounded px-2.5 py-1.5 focus:outline-none focus:border-[#d97757]">
                                 <option value="">-- Select Base --</option>
                             </select>
                         </div>
                         <div class="flex items-center gap-2">
-                            <span class="text-xs font-semibold text-slate-500 whitespace-nowrap">Target Snapshot:</span>
+                            <span class="text-xs font-semibold text-slate-500 whitespace-nowrap">Target:</span>
                             <select id="targetSnapshotSelect" class="text-xs bg-white border border-[#e8e5dd] rounded px-2.5 py-1.5 focus:outline-none focus:border-[#d97757]">
                                 <option value="">-- Select Target --</option>
                             </select>
                         </div>
-                        <button onclick="compareServers()" class="py-1.5 px-4 bg-slate-800 hover:bg-slate-700 text-white font-semibold rounded-lg text-xs transition-all shadow-md flex items-center gap-2">
-                            Compare Base & Target
+                        <button onclick="compareServers()" class="py-1.5 px-4 bg-slate-800 hover:bg-slate-700 text-white font-semibold rounded-lg text-xs transition-all shadow-md flex items-center gap-2 group">
+                            <svg class="w-3.5 h-3.5 shrink-0 transition-transform group-hover:rotate-180 duration-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+                            </svg>
+                            Compare
                         </button>
-                        <button id="downloadExcelBtn" onclick="downloadExcelReport()" class="py-1.5 px-3 bg-emerald-700 hover:bg-emerald-600 text-white rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm">
+                        
+                        <div id="diffSummary" class="hidden flex items-center gap-1.5 text-xs">
+                            <span class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold text-[10px]"><span id="addCount">0</span> ADD</span>
+                            <span class="px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 font-bold text-[10px]"><span id="removeCount">0</span> REMOVE</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Right: Excel buttons grouped together -->
+                    <div class="flex items-center gap-2 shrink-0 ml-auto">
+                        <button id="downloadExcelBtn" onclick="downloadExcelReport()" class="py-1.5 px-3 bg-[#0f766e] hover:bg-[#0d6861] text-white rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm">
                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
                             </svg>
                             Download Excel Report
                         </button>
                         <input type="file" id="excelReportUpload" accept=".xlsx" onchange="handleExcelUpload(event)" class="hidden">
                         <button id="uploadExcelBtn" onclick="document.getElementById('excelReportUpload').click()" class="py-1.5 px-3 bg-white hover:bg-slate-50 border border-[#e8e5dd] text-slate-700 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm">
                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
                             </svg>
                             Upload Excel Report
                         </button>
-                        <div id="diffSummary" class="text-xs text-slate-500 hidden">
-                            Found <span id="addCount" class="text-emerald-600 font-bold">0</span> additions and 
-                            <span id="removeCount" class="text-rose-600 font-bold">0</span> removals.
-                        </div>
-                    </div>
-                    
-                    <div class="flex items-center gap-3">
-                        <label class="flex items-center gap-2 text-xs text-slate-600 font-medium">
-                            <input type="checkbox" id="ignoreSizeCheckbox" onchange="renderDiffs()" class="rounded text-[#d97757] focus:ring-[#d97757]">
-                            Ignore Size Mismatch
-                        </label>
-                        <button id="acceptAllBtn" onclick="syncSelected()" class="hidden py-1.5 px-3 bg-[#d97757] hover:bg-[#c86646] text-white rounded-lg text-xs font-semibold transition-all">
-                            Sync Selected Actions
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Changelogs & Revert Panel -->
-                <div class="flex flex-wrap gap-4 items-center bg-white p-2.5 rounded-lg border border-[#e8e5dd]">
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs font-semibold text-slate-500 whitespace-nowrap">Changelog:</span>
-                        <select id="logFileSelect" class="text-xs bg-[#faf9f5] border border-[#e8e5dd] rounded px-2 py-1.5 focus:outline-none focus:border-[#d97757]">
-                            <option value="">-- Select Changelog --</option>
-                        </select>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <button onclick="downloadSelectedLog()" class="py-1.5 px-3 bg-white hover:bg-slate-50 border border-[#e8e5dd] text-slate-700 rounded-lg text-xs font-semibold transition-all">
-                            Download Log
-                        </button>
-                        <button onclick="loadSelectedLogToServer()" class="py-1.5 px-3 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-semibold transition-all">
-                            Load Log to Revert
-                        </button>
-                    </div>
-                    <div class="h-4 w-px bg-[#e8e5dd]"></div>
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs font-semibold text-slate-500 whitespace-nowrap">Or Upload Log:</span>
-                        <input type="file" id="logFileUpload" accept=".json" onchange="handleLogUpload(event)" class="hidden">
-                        <label for="logFileUpload" class="cursor-pointer py-1.5 px-3 bg-white hover:bg-slate-50 border border-[#e8e5dd] text-slate-700 rounded-lg text-xs font-semibold transition-all">
-                            Upload File
-                        </label>
-                    </div>
-                    <div id="revertModeIndicator" class="hidden flex items-center gap-2 ml-auto">
-                        <span class="px-2 py-0.5 text-xs font-bold rounded-full bg-rose-100 text-rose-800 animate-pulse">Revert Mode Active</span>
-                        <button onclick="exitRevertMode()" class="text-xs text-slate-500 hover:text-slate-700 underline font-semibold">Exit</button>
                     </div>
                 </div>
 
@@ -269,7 +293,14 @@
                             <th class="py-3 px-4 w-28 text-center">Action</th>
                             <th class="py-3 px-4 w-16 text-center">Type</th>
                             <th class="py-3 px-4 text-left">Relative Path</th>
-                            <th class="py-3 px-4 w-32 text-center">Sync Action</th>
+                            <th class="py-3 px-4 w-36 text-center">
+                                <button id="acceptAllBtn" onclick="syncSelected()" class="hidden w-full py-1 px-2 bg-white hover:bg-slate-50 text-[#d97757] border border-[#d97757] rounded-md text-[10px] font-bold uppercase tracking-wider transition-all shadow-sm flex items-center justify-center gap-1.5 group">
+                                    <svg class="w-3.5 h-3.5 shrink-0 transition-transform group-hover:rotate-[360deg] duration-700 text-[#d97757]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                                    </svg>
+                                    <span id="acceptAllBtnText">Sync All</span>
+                                </button>
+                            </th>
                         </tr>
                     </thead>
                     <tbody id="diffContainer" class="divide-y divide-[#e8e5dd] text-sm text-slate-700">
@@ -415,15 +446,15 @@
                 const path = item.Path || item.path || '';
                 const cond = item.IgnoreCondition || item.ignoreCondition || 'IGNORE_ENTIRE_FOLDER';
                 const itemDiv = document.createElement('div');
-                itemDiv.className = 'flex gap-1.5 items-center bg-[#faf9f5] p-1.5 rounded-lg border border-[#e8e5dd] justify-between';
+                itemDiv.className = 'flex gap-1 items-center bg-[#faf9f5] p-1 rounded-lg border border-[#e8e5dd] justify-between w-full min-w-0';
                 itemDiv.innerHTML = `
-                    <input type="text" value="${path}" class="w-24 bg-white border border-[#e8e5dd] rounded px-1.5 h-7 text-xs text-slate-800 focus:outline-none focus:border-[#d97757]" onchange="updateBlacklistPath(${idx}, this.value)" placeholder="Path">
-                    <select class="flex-1 bg-white border border-[#e8e5dd] rounded px-1 h-7 text-[10px] text-slate-700 focus:outline-none focus:border-[#d97757]" onchange="updateBlacklistCond(${idx}, this.value)">
+                    <input type="text" value="${path}" class="w-20 bg-white border border-[#e8e5dd] rounded px-1.5 h-7 text-xs text-slate-800 focus:outline-none focus:border-[#d97757]" onchange="updateBlacklistPath(${idx}, this.value)" placeholder="Path">
+                    <select class="flex-1 min-w-0 bg-white border border-[#e8e5dd] rounded px-1 h-7 text-[10px] text-slate-700 focus:outline-none focus:border-[#d97757]" onchange="updateBlacklistCond(${idx}, this.value)">
                         <option value="IGNORE_ENTIRE_FOLDER" ${cond === 'IGNORE_ENTIRE_FOLDER' ? 'selected' : ''}>Ignore Folder</option>
                         <option value="IGNORE_FILES_ONLY" ${cond === 'IGNORE_FILES_ONLY' ? 'selected' : ''}>Ignore Files Only</option>
                     </select>
                     <button onclick="removeBlacklistItem(${idx})" class="text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded h-7 w-7 flex items-center justify-center shrink-0 transition-colors" title="Delete Rule">
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"/></svg>
                     </button>
                 `;
                 container.appendChild(itemDiv);
@@ -801,13 +832,13 @@
         }
 
         function updateSyncButtonLabel() {
-            const acceptAllBtn = document.getElementById('acceptAllBtn');
-            if (!acceptAllBtn) return;
+            const acceptAllBtnText = document.getElementById('acceptAllBtnText');
+            if (!acceptAllBtnText) return;
             const selectedCount = document.querySelectorAll('.row-checkbox:checked').length;
             if (selectedCount === 0) {
-                acceptAllBtn.textContent = 'Sync All Changes';
+                acceptAllBtnText.textContent = 'Sync All';
             } else {
-                acceptAllBtn.textContent = 'Sync Selected Changes';
+                acceptAllBtnText.textContent = `Sync (${selectedCount})`;
             }
         }
 
@@ -861,7 +892,7 @@
             const searchQuery = (document.getElementById('pathSearchInput').value || "").toLowerCase();
             const actionFilter = document.getElementById('actionFilterSelect').value;
             const sortOrder = document.getElementById('pathSortOrder').value;
-            const ignoreSize = document.getElementById('ignoreSizeCheckbox').checked;
+            const ignoreSize = false;
 
             // 1. Filter items
             let filteredItems = diffItems.filter(item => {
@@ -1142,8 +1173,9 @@
             const targetServer = document.getElementById('targetSnapshotSelect').value;
 
             const acceptAllBtn = document.getElementById('acceptAllBtn');
-            acceptAllBtn.disabled = true;
-            acceptAllBtn.textContent = isAll ? 'Syncing All...' : 'Syncing Selected...';
+            const acceptAllBtnText = document.getElementById('acceptAllBtnText');
+            if (acceptAllBtn) acceptAllBtn.disabled = true;
+            if (acceptAllBtnText) acceptAllBtnText.textContent = isAll ? 'Syncing All...' : 'Syncing Selected...';
 
             try {
                 const response = await fetch('/api/sync', {
@@ -1382,8 +1414,9 @@
             }
             
             const acceptAllBtn = document.getElementById('acceptAllBtn');
-            acceptAllBtn.disabled = true;
-            acceptAllBtn.textContent = isAll ? 'Reverting All...' : 'Reverting Selected...';
+            const acceptAllBtnText = document.getElementById('acceptAllBtnText');
+            if (acceptAllBtn) acceptAllBtn.disabled = true;
+            if (acceptAllBtnText) acceptAllBtnText.textContent = isAll ? 'Reverting All...' : 'Reverting Selected...';
 
             try {
                 const response = await fetch('/api/revert', {
