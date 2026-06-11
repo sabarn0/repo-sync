@@ -51,31 +51,29 @@
 </head>
 <body class="h-full flex flex-col overflow-hidden text-slate-800">
 
-    <!-- Header -->
-    <header class="flex items-center justify-between px-6 py-4 border-b border-[#e8e5dd] bg-white shrink-0 shadow-sm">
-        <div class="flex items-center gap-3">
-            <div class="h-9 w-9 rounded-xl bg-[#d97757] flex items-center justify-center shadow-md shadow-[#d97757]/10">
-                <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                </svg>
-            </div>
-            <div>
-                <h1 class="text-lg font-bold tracking-tight text-slate-800">reposync</h1>
-                <p class="text-[10px] text-slate-500 font-semibold tracking-wider uppercase">Remote Repository Scanner & Sync</p>
-            </div>
-        </div>
-        <div class="flex items-center gap-3">
-            <div id="mockStatus" class="hidden px-3 py-1 text-xs font-semibold rounded-full border bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
-                Mock Mode Active
-            </div>
-        </div>
-    </header>
-
     <!-- Main Workspace -->
     <main class="flex-1 flex overflow-hidden">
         
         <!-- Sidebar: Config & Server Control -->
         <aside class="w-80 border-r border-[#e8e5dd] bg-white shrink-0 overflow-y-auto p-4 space-y-4">
+            
+            <!-- App Logo & Branding -->
+            <div class="flex flex-col gap-3 pb-4 border-b border-[#e8e5dd] mb-2">
+                <div class="flex items-center gap-3">
+                    <div class="h-9 w-9 rounded-xl bg-[#d97757] flex items-center justify-center shadow-md shadow-[#d97757]/10 shrink-0">
+                        <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-lg font-bold tracking-tight text-slate-800">reposync</h1>
+                        <p class="text-[9px] text-slate-500 font-semibold tracking-wider uppercase leading-tight">Remote Repository Scanner & Sync</p>
+                    </div>
+                </div>
+                <div id="mockStatus" class="hidden text-center py-1 text-[10px] font-semibold rounded-full border bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
+                    Mock Mode Active
+                </div>
+            </div>
             
             <!-- Snapshot Generator -->
             <div class="border border-[#e8e5dd] rounded-xl bg-[#faf9f5] overflow-hidden shadow-sm">
@@ -179,9 +177,8 @@
                             Upload Excel Report
                         </button>
                         <div id="diffSummary" class="text-xs text-slate-500 hidden">
-                            Found <span id="addCount" class="text-emerald-600 font-bold">0</span> additions, 
-                            <span id="removeCount" class="text-rose-600 font-bold">0</span> removals, and 
-                            <span id="modifyCount" class="text-amber-600 font-bold">0</span> modifications.
+                            Found <span id="addCount" class="text-emerald-600 font-bold">0</span> additions and 
+                            <span id="removeCount" class="text-rose-600 font-bold">0</span> removals.
                         </div>
                     </div>
                     
@@ -238,7 +235,6 @@
                             <option value="ALL">All Actions</option>
                             <option value="ADD">Additions Only</option>
                             <option value="REMOVE">Removals Only</option>
-                            <option value="MODIFY">Modifications Only</option>
                         </select>
                     </div>
                     <div class="flex items-center gap-2">
@@ -270,13 +266,10 @@
                             <th class="py-3 px-4 w-12 text-center">
                                 <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this.checked)" class="rounded text-[#d97757] focus:ring-[#d97757]">
                             </th>
-                            <th class="py-3 px-4 w-12 text-center">Type</th>
-                            <th class="py-3 px-4">Relative Path</th>
-                            <th class="py-3 px-4">Action</th>
-                            <th class="py-3 px-4">Base Size / Date</th>
-                            <th class="py-3 px-4">Target Size / Date</th>
-                            <th class="py-3 px-4 w-28 text-center">Sync Action</th>
-                            <th class="py-3 px-4 w-24 text-center">Status</th>
+                            <th class="py-3 px-4 w-28 text-center">Action</th>
+                            <th class="py-3 px-4 w-16 text-center">Type</th>
+                            <th class="py-3 px-4 text-left">Relative Path</th>
+                            <th class="py-3 px-4 w-32 text-center">Sync Action</th>
                         </tr>
                     </thead>
                     <tbody id="diffContainer" class="divide-y divide-[#e8e5dd] text-sm text-slate-700">
@@ -424,13 +417,13 @@
                 const itemDiv = document.createElement('div');
                 itemDiv.className = 'flex gap-1.5 items-center bg-[#faf9f5] p-1.5 rounded-lg border border-[#e8e5dd] justify-between';
                 itemDiv.innerHTML = `
-                    <input type="text" value="${path}" class="w-24 bg-white border border-[#e8e5dd] rounded px-1.5 py-0.5 text-xs text-slate-800 focus:outline-none focus:border-[#d97757]" onchange="updateBlacklistPath(${idx}, this.value)" placeholder="Path">
-                    <select class="flex-1 bg-white border border-[#e8e5dd] rounded px-1 py-0.5 text-[10px] text-slate-700 focus:outline-none focus:border-[#d97757]" onchange="updateBlacklistCond(${idx}, this.value)">
+                    <input type="text" value="${path}" class="w-24 bg-white border border-[#e8e5dd] rounded px-1.5 h-7 text-xs text-slate-800 focus:outline-none focus:border-[#d97757]" onchange="updateBlacklistPath(${idx}, this.value)" placeholder="Path">
+                    <select class="flex-1 bg-white border border-[#e8e5dd] rounded px-1 h-7 text-[10px] text-slate-700 focus:outline-none focus:border-[#d97757]" onchange="updateBlacklistCond(${idx}, this.value)">
                         <option value="IGNORE_ENTIRE_FOLDER" ${cond === 'IGNORE_ENTIRE_FOLDER' ? 'selected' : ''}>Ignore Folder</option>
                         <option value="IGNORE_FILES_ONLY" ${cond === 'IGNORE_FILES_ONLY' ? 'selected' : ''}>Ignore Files Only</option>
                     </select>
-                    <button onclick="removeBlacklistItem(${idx})" class="text-rose-600 hover:text-rose-800 p-1 shrink-0">
-                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                    <button onclick="removeBlacklistItem(${idx})" class="text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded h-7 w-7 flex items-center justify-center shrink-0 transition-colors" title="Delete Rule">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                     </button>
                 `;
                 container.appendChild(itemDiv);
@@ -688,23 +681,10 @@
             tr.className = `${actionColorClass} hover:bg-slate-100/60 transition-colors`;
             tr.innerHTML = `
                 <td class="py-2.5 px-4 text-center">${checkboxHtml}</td>
+                <td class="py-2.5 px-4 text-center">${actionIcon}</td>
                 <td class="py-2.5 px-4 text-center">${typeIcon}</td>
                 <td class="py-2.5 px-4 font-mono text-xs max-w-md truncate" title="${pathText}">${pathText}</td>
-                <td class="py-2.5 px-4">${actionIcon}</td>
-                <td class="py-2.5 px-4 text-xs text-slate-500">
-                    <div>${sizeBase}</div>
-                    <div class="text-[10px] text-slate-400">${dateBase}</div>
-                </td>
-                <td class="py-2.5 px-4 text-xs text-slate-500">
-                    <div>${sizeTarget}</div>
-                    <div class="text-[10px] text-slate-400">${dateTarget}</div>
-                </td>
-                <td class="py-2.5 px-4 text-center">
-                    ${actionButtonHtml}
-                </td>
-                <td class="py-2.5 px-4 text-center font-semibold text-xs text-slate-500" id="status-${originalIndex}">
-                    ${item.status}
-                </td>
+                <td class="py-2.5 px-4 text-center">${actionButtonHtml}</td>
             `;
             return tr;
         }
@@ -922,7 +902,7 @@
                 if (paginationEl) paginationEl.classList.add('hidden');
                 container.innerHTML = `
                     <tr>
-                        <td colspan="8" class="py-12 text-center text-slate-500">
+                        <td colspan="5" class="py-12 text-center text-slate-500">
                             No differences matching the active filter criteria.
                         </td>
                     </tr>
@@ -964,7 +944,6 @@
 
             document.getElementById('addCount').textContent = adds;
             document.getElementById('removeCount').textContent = removes;
-            document.getElementById('modifyCount').textContent = modifies;
 
             summary.classList.remove('hidden');
             acceptAllBtn.classList.remove('hidden');
@@ -1085,7 +1064,7 @@
                 btn.disabled = true;
                 btn.textContent = 'Syncing...';
             }
-            statusCell.textContent = 'Processing';
+            if (statusCell) statusCell.textContent = 'Processing';
 
             try {
                 const response = await fetch('/api/sync', {
@@ -1101,21 +1080,23 @@
                 const results = await response.json();
                 const updatedItem = results[0];
                 
-                statusCell.textContent = updatedItem.status;
+                if (statusCell) statusCell.textContent = updatedItem.status;
                 if (updatedItem.status === 'Success') {
-                    statusCell.className = 'py-2.5 px-4 text-center font-bold text-xs text-emerald-600';
+                    if (statusCell) statusCell.className = 'py-2.5 px-4 text-center font-bold text-xs text-emerald-600';
                     diffItems[index].status = 'Success';
                     renderDiffs();
                 } else {
-                    statusCell.className = 'py-2.5 px-4 text-center font-bold text-xs text-rose-600';
+                    if (statusCell) statusCell.className = 'py-2.5 px-4 text-center font-bold text-xs text-rose-600';
                     if (btn) {
                         btn.disabled = false;
                         btn.textContent = 'Accept';
                     }
                 }
             } catch (err) {
-                statusCell.textContent = 'Failed';
-                statusCell.className = 'py-2.5 px-4 text-center font-bold text-xs text-rose-600';
+                if (statusCell) {
+                    statusCell.textContent = 'Failed';
+                    statusCell.className = 'py-2.5 px-4 text-center font-bold text-xs text-rose-600';
+                }
                 if (btn) {
                     btn.disabled = false;
                     btn.textContent = 'Accept';
@@ -1334,7 +1315,7 @@
                 btn.disabled = true;
                 btn.textContent = 'Reverting...';
             }
-            statusCell.textContent = 'Processing';
+            if (statusCell) statusCell.textContent = 'Processing';
 
             try {
                 const response = await fetch('/api/revert', {
@@ -1348,21 +1329,23 @@
                 const results = await response.json();
                 const updatedItem = results[0];
                 
-                statusCell.textContent = updatedItem.status;
+                if (statusCell) statusCell.textContent = updatedItem.status;
                 if (updatedItem.status === 'Success') {
-                    statusCell.className = 'py-2.5 px-4 text-center font-bold text-xs text-emerald-600';
+                    if (statusCell) statusCell.className = 'py-2.5 px-4 text-center font-bold text-xs text-emerald-600';
                     diffItems[index].status = 'Success';
                     renderDiffs();
                 } else {
-                    statusCell.className = 'py-2.5 px-4 text-center font-bold text-xs text-rose-600';
+                    if (statusCell) statusCell.className = 'py-2.5 px-4 text-center font-bold text-xs text-rose-600';
                     if (btn) {
                         btn.disabled = false;
                         btn.textContent = 'Revert';
                     }
                 }
             } catch (err) {
-                statusCell.textContent = 'Failed';
-                statusCell.className = 'py-2.5 px-4 text-center font-bold text-xs text-rose-600';
+                if (statusCell) {
+                    statusCell.textContent = 'Failed';
+                    statusCell.className = 'py-2.5 px-4 text-center font-bold text-xs text-rose-600';
+                }
                 if (btn) {
                     btn.disabled = false;
                     btn.textContent = 'Revert';

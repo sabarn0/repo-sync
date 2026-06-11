@@ -24,47 +24,22 @@ namespace RepoScanner.Services
 
                 if (!targetDict.TryGetValue(normalizedPath, out var targetItem))
                 {
-                    // Item exists in Base but is missing in Target -> ADD to Target
-                    diffs.Add(new DiffItem
+                    if (!IsUnnecessaryNonSyncFile(baseItem.RelativePath, baseItem.IsFolder))
                     {
-                        RelativePath = baseItem.RelativePath,
-                        Name = baseItem.Name,
-                        IsFolder = baseItem.IsFolder,
-                        ActionType = "ADD",
-                        BaseSize = baseItem.IsFolder ? null : baseItem.Size,
-                        TargetSize = null,
-                        BaseModified = baseItem.LastModified,
-                        TargetModified = null,
-                        BaseRootPath = baseSnap.RootPath,
-                        TargetRootPath = targetSnap.RootPath
-                    });
-                }
-                else
-                {
-                    // Item exists in both places. If it's a file, verify Size and Modified date.
-                    if (!baseItem.IsFolder && !targetItem.IsFolder)
-                    {
-                        // Check for size difference or modified difference
-                        bool sizeDiff = baseItem.Size != targetItem.Size;
-                        // Precision check: allow 2-second window for network systems/FAT copy adjustments
-                        bool timeDiff = Math.Abs((baseItem.LastModified - targetItem.LastModified).TotalSeconds) > 2;
-
-                        if (sizeDiff || timeDiff)
+                        // Item exists in Base but is missing in Target -> ADD to Target
+                        diffs.Add(new DiffItem
                         {
-                            diffs.Add(new DiffItem
-                            {
-                                RelativePath = baseItem.RelativePath,
-                                Name = baseItem.Name,
-                                IsFolder = false,
-                                ActionType = "MODIFY",
-                                BaseSize = baseItem.Size,
-                                TargetSize = targetItem.Size,
-                                BaseModified = baseItem.LastModified,
-                                TargetModified = targetItem.LastModified,
-                                BaseRootPath = baseSnap.RootPath,
-                                TargetRootPath = targetSnap.RootPath
-                            });
-                        }
+                            RelativePath = baseItem.RelativePath,
+                            Name = baseItem.Name,
+                            IsFolder = baseItem.IsFolder,
+                            ActionType = "ADD",
+                            BaseSize = baseItem.IsFolder ? null : baseItem.Size,
+                            TargetSize = null,
+                            BaseModified = baseItem.LastModified,
+                            TargetModified = null,
+                            BaseRootPath = baseSnap.RootPath,
+                            TargetRootPath = targetSnap.RootPath
+                        });
                     }
                 }
             }
@@ -77,20 +52,23 @@ namespace RepoScanner.Services
 
                 if (!baseDict.ContainsKey(normalizedPath))
                 {
-                    // Item exists in Target but is missing in Base -> REMOVE from Target
-                    diffs.Add(new DiffItem
+                    if (!IsUnnecessaryNonSyncFile(targetItem.RelativePath, targetItem.IsFolder))
                     {
-                        RelativePath = targetItem.RelativePath,
-                        Name = targetItem.Name,
-                        IsFolder = targetItem.IsFolder,
-                        ActionType = "REMOVE",
-                        BaseSize = null,
-                        TargetSize = targetItem.IsFolder ? null : targetItem.Size,
-                        BaseModified = null,
-                        TargetModified = targetItem.LastModified,
-                        BaseRootPath = baseSnap.RootPath,
-                        TargetRootPath = targetSnap.RootPath
-                    });
+                        // Item exists in Target but is missing in Base -> REMOVE from Target
+                        diffs.Add(new DiffItem
+                        {
+                            RelativePath = targetItem.RelativePath,
+                            Name = targetItem.Name,
+                            IsFolder = targetItem.IsFolder,
+                            ActionType = "REMOVE",
+                            BaseSize = null,
+                            TargetSize = targetItem.IsFolder ? null : targetItem.Size,
+                            BaseModified = null,
+                            TargetModified = targetItem.LastModified,
+                            BaseRootPath = baseSnap.RootPath,
+                            TargetRootPath = targetSnap.RootPath
+                        });
+                    }
                 }
             }
 
@@ -100,6 +78,35 @@ namespace RepoScanner.Services
             return diffs.OrderBy(d => d.IsFolder ? 0 : 1)
                         .ThenBy(d => d.RelativePath.Length)
                         .ToList();
+        }
+
+        private static bool IsUnnecessaryNonSyncFile(string relativePath, bool isFolder)
+        {
+            if (isFolder) return false;
+
+            var lowerPath = relativePath.ToLowerInvariant();
+
+            // Ignore common log/temporary file extensions
+            if (lowerPath.EndsWith(".log") || lowerPath.EndsWith(".tmp") || lowerPath.EndsWith(".temp"))
+            {
+                return true;
+            }
+
+            // Ignore files in directories (or filenames) containing log, report, output, temp, tmp keywords
+            var segments = lowerPath.Split(new[] { '\\', '/' }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (var segment in segments)
+            {
+                if (segment.Contains("log") || 
+                    segment.Contains("report") || 
+                    segment.Contains("output") || 
+                    segment.Contains("temp") || 
+                    segment.Contains("tmp"))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }

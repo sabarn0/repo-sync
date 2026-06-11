@@ -291,19 +291,13 @@ app.MapPost("/api/compare/excel-download", (CompareRequest req) =>
     var diffs = DiffEngine.CompareSnapshots(baseSnap, targetSnap);
     
     var memoryStream = new MemoryStream();
-    var rows = diffs.Select(d => new {
-        Accept = false,
-        RelativePath = d.RelativePath,
-        ActionType = d.ActionType,
-        IsFolder = d.IsFolder,
-        BaseSize = d.BaseSize,
-        TargetSize = d.TargetSize,
-        BaseModified = d.BaseModified,
-        TargetModified = d.TargetModified,
-        BaseRootPath = d.BaseRootPath,
-        TargetRootPath = d.TargetRootPath,
-        Name = d.Name,
-        Status = d.Status
+    var rows = diffs.Select(d => new Dictionary<string, object> {
+        { "Accept", false },
+        { "Action", d.ActionType },
+        { "Relative Path", d.RelativePath },
+        { "IsFolder", d.IsFolder },
+        { "Base Root", d.BaseRootPath },
+        { "Target Root", d.TargetRootPath }
     });
     
     MiniExcel.SaveAs(memoryStream, rows);
@@ -356,33 +350,22 @@ app.MapPost("/api/compare/excel-upload", async (HttpRequest request) =>
                 return valStr == "true" || valStr == "1" || valStr == "yes" || valStr == "y" || valStr == "checked";
             }
 
-            long? getLong(params string[] keys)
-            {
-                var valStr = getVal(keys);
-                return long.TryParse(valStr, out var res) ? res : null;
-            }
-
-            DateTime? getDate(params string[] keys)
-            {
-                var valStr = getVal(keys);
-                return DateTime.TryParse(valStr, out var res) ? res : null;
-            }
-
             bool accept = getBool("A", "Accept");
             if (!accept) continue;
 
+            var relPath = getVal("C", "Relative Path", "RelativePath");
             var item = new DiffItem
             {
-                RelativePath = getVal("B", "RelativePath"),
-                ActionType = getVal("C", "ActionType"),
+                RelativePath = relPath,
+                ActionType = getVal("B", "Action", "ActionType"),
                 IsFolder = getBool("D", "IsFolder"),
-                BaseSize = getLong("E", "BaseSize"),
-                TargetSize = getLong("F", "TargetSize"),
-                BaseModified = getDate("G", "BaseModified"),
-                TargetModified = getDate("H", "TargetModified"),
-                BaseRootPath = getVal("I", "BaseRootPath"),
-                TargetRootPath = getVal("J", "TargetRootPath"),
-                Name = getVal("K", "Name"),
+                BaseSize = null,
+                TargetSize = null,
+                BaseModified = null,
+                TargetModified = null,
+                BaseRootPath = getVal("E", "Base Root", "BaseRootPath"),
+                TargetRootPath = getVal("F", "Target Root", "TargetRootPath"),
+                Name = Path.GetFileName(relPath),
                 Status = "Pending"
             };
             itemsToSync.Add(item);
