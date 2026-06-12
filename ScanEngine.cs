@@ -17,11 +17,12 @@ namespace RepoScanner.Services
 
             var blacklists = blacklist.Select(b => {
                 string p = b.Path.Replace("/", "\\").ToLowerInvariant();
-                if (!p.Contains("*") && !p.Contains("?") && !p.Contains("^") && !p.Contains("$"))
+                bool isRegex = p.Contains("*") || p.Contains("?") || p.Contains("^") || p.Contains("$");
+                if (!isRegex)
                 {
                     p = p.TrimEnd('\\');
                 }
-                return (dynamic)new { Path = p, b.IgnoreCondition };
+                return new BlacklistRule { Path = p, IgnoreCondition = b.IgnoreCondition, IsRegex = isRegex };
             }).ToList();
 
             if (Directory.Exists(rootPath))
@@ -44,7 +45,7 @@ namespace RepoScanner.Services
             };
         }
 
-        private static void WalkDirectory(string currentDir, string rootPath, List<dynamic> blacklists, ConcurrentBag<FileInventoryItem> inventory, bool parentIsBlacklisted)
+        private static void WalkDirectory(string currentDir, string rootPath, List<BlacklistRule> blacklists, ConcurrentBag<FileInventoryItem> inventory, bool parentIsBlacklisted)
         {
             try
             {
@@ -73,7 +74,14 @@ namespace RepoScanner.Services
                     );
                     if (folderIgnore != null)
                     {
-                        isFolderBlacklisted = true;
+                        if (folderIgnore.IsRegex)
+                        {
+                            isFolderBlacklisted = true;
+                        }
+                        else
+                        {
+                            return; // Skip completely
+                        }
                     }
                 }
 
@@ -83,7 +91,8 @@ namespace RepoScanner.Services
                     PathMatchesPattern(relativePathLower, b.Path)
                 );
 
-                bool filesAreIgnored = isFolderBlacklisted || (filesIgnore != null);
+                bool filesAreRegexIgnored = isFolderBlacklisted || (filesIgnore != null && filesIgnore.IsRegex);
+                bool filesAreNonRegexIgnored = filesIgnore != null && !filesIgnore.IsRegex;
 
                 // Ignore hidden/system folders (like $RECYCLE.BIN, System Volume Information)
                 if (!string.IsNullOrEmpty(relativePath))
@@ -114,46 +123,58 @@ namespace RepoScanner.Services
                 }
 
                 // Process files in the current folder
-                try
+                if (!filesAreNonRegexIgnored)
                 {
-                    var files = Directory.GetFiles(currentDir);
-                    foreach (var filePath in files)
+                    try
                     {
-                        var fileInfo = new FileInfo(filePath);
-                        if ((fileInfo.Attributes & (FileAttributes.Hidden | FileAttributes.System)) != 0 ||
-                            fileInfo.Name.StartsWith("$", StringComparison.OrdinalIgnoreCase))
+                        var files = Directory.GetFiles(currentDir);
+                        foreach (var filePath in files)
                         {
-                            continue;
-                        }
-                        string fileRelativePath = Path.GetRelativePath(rootPath, filePath);
-                        
-                        bool fileIsBlacklisted = filesAreIgnored;
-                        if (!fileIsBlacklisted)
-                        {
+                            var fileInfo = new FileInfo(filePath);
+                            if ((fileInfo.Attributes & (FileAttributes.Hidden | FileAttributes.System)) != 0 ||
+                                fileInfo.Name.StartsWith("$", StringComparison.OrdinalIgnoreCase))
+                            {
+                                continue;
+                            }
+                            string fileRelativePath = Path.GetRelativePath(rootPath, filePath);
+                            
+                            bool fileIsRegexBlacklisted = filesAreRegexIgnored;
+                            bool fileIsNonRegexBlacklisted = false;
+                            
                             // Check if file itself matches any pattern (e.g. wildcard or regex rule)
                             var fileIgnoreRule = blacklists.FirstOrDefault(b =>
                                 PathMatchesPattern(fileRelativePath.ToLowerInvariant(), b.Path)
                             );
                             if (fileIgnoreRule != null)
                             {
-                                fileIsBlacklisted = true;
+                                if (fileIgnoreRule.IsRegex)
+                                {
+                                    fileIsRegexBlacklisted = true;
+                                }
+                                else
+                                {
+                                    fileIsNonRegexBlacklisted = true;
+                                }
+                            }
+
+                            if (!fileIsNonRegexBlacklisted)
+                            {
+                                inventory.Add(new FileInventoryItem
+                                {
+                                    Name = fileInfo.Name,
+                                    RelativePath = fileRelativePath,
+                                    IsFolder = false,
+                                    Size = fileInfo.Length,
+                                    LastModified = fileInfo.LastWriteTimeUtc,
+                                    RootPath = rootPath,
+                                    IsBlacklisted = fileIsRegexBlacklisted
+                                });
                             }
                         }
-
-                        inventory.Add(new FileInventoryItem
-                        {
-                            Name = fileInfo.Name,
-                            RelativePath = fileRelativePath,
-                            IsFolder = false,
-                            Size = fileInfo.Length,
-                            LastModified = fileInfo.LastWriteTimeUtc,
-                            RootPath = rootPath,
-                            IsBlacklisted = fileIsBlacklisted
-                        });
                     }
+                    catch (UnauthorizedAccessException) { }
+                    catch (DirectoryNotFoundException) { }
                 }
-                catch (UnauthorizedAccessException) { }
-                catch (DirectoryNotFoundException) { }
 
                 // Recursively walk subdirectories
                 try
@@ -212,6 +233,13 @@ namespace RepoScanner.Services
 
             // 3. Fallback
             return normalizedPath == normalizedPattern || normalizedPath.StartsWith(normalizedPattern + "\\");
+        }
+
+        private class BlacklistRule
+        {
+            public string Path { get; set; } = string.Empty;
+            public string IgnoreCondition { get; set; } = string.Empty;
+            public bool IsRegex { get; set; }
         }
     }
 }
