@@ -24,6 +24,7 @@ namespace RepoScanner.Models
         public long Size { get; set; }
         public DateTime LastModified { get; set; }
         public string RootPath { get; set; } = string.Empty; // Keep track of which root drive/UNC path this belongs to
+        public bool IsBlacklisted { get; set; }
     }
 
     public class ScanSnapshot

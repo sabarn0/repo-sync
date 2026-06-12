@@ -22,6 +22,11 @@ namespace RepoScanner.Services
                 var baseItem = baseKv.Value;
                 var normalizedPath = baseKv.Key;
 
+                if (baseItem.IsBlacklisted && targetDict.ContainsKey(normalizedPath))
+                {
+                    continue; // Skip blacklisted path that exists in target
+                }
+
                 if (!targetDict.TryGetValue(normalizedPath, out var targetItem))
                 {
                     if (!IsUnnecessaryNonSyncFile(baseItem.RelativePath, baseItem.IsFolder))
@@ -49,6 +54,11 @@ namespace RepoScanner.Services
             {
                 var targetItem = targetKv.Value;
                 var normalizedPath = targetKv.Key;
+
+                if (targetItem.IsBlacklisted)
+                {
+                    continue; // Skip blacklisted target items
+                }
 
                 if (!baseDict.ContainsKey(normalizedPath))
                 {

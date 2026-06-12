@@ -222,11 +222,7 @@
                             </svg>
                             Compare
                         </button>
-                        
-                        <div id="diffSummary" class="hidden flex items-center gap-1.5 text-xs">
-                            <span class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold text-[10px]"><span id="addCount">0</span> ADD</span>
-                            <span class="px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 font-bold text-[10px]"><span id="removeCount">0</span> REMOVE</span>
-                        </div>
+                        <!-- Comparison count badges removed on user request -->
                     </div>
                     
                     <!-- Right: Excel buttons grouped together -->
@@ -709,7 +705,7 @@
 
             const pathText = item.relativePath + (item.isFolder && !item.relativePath.endsWith('\\') ? '\\' : '');
 
-            tr.className = `${actionColorClass} hover:bg-slate-100/60 transition-colors`;
+            tr.className = `${actionColorClass} hover:bg-slate-100/60 cursor-pointer transition-colors`;
             tr.innerHTML = `
                 <td class="py-2.5 px-4 text-center">${checkboxHtml}</td>
                 <td class="py-2.5 px-4 text-center">${actionIcon}</td>
@@ -717,6 +713,16 @@
                 <td class="py-2.5 px-4 font-mono text-xs max-w-md truncate" title="${pathText}">${pathText}</td>
                 <td class="py-2.5 px-4 text-center">${actionButtonHtml}</td>
             `;
+            tr.addEventListener('click', (e) => {
+                if (e.target.closest('button') || e.target.closest('input')) {
+                    return;
+                }
+                const checkbox = tr.querySelector('.row-checkbox');
+                if (checkbox && !checkbox.disabled) {
+                    checkbox.checked = !checkbox.checked;
+                    updateSyncButtonLabel();
+                }
+            });
             return tr;
         }
 
@@ -879,7 +885,7 @@
                         emptyText.textContent = "Select snapshots to compare or upload an Excel report to begin synchronization.";
                     }
                 }
-                summary.classList.add('hidden');
+                if (summary) summary.classList.add('hidden');
                 acceptAllBtn.classList.add('hidden');
                 return;
             } else {
@@ -973,10 +979,13 @@
             renderedCountInPage = 0;
             renderNextChunk();
 
-            document.getElementById('addCount').textContent = adds;
-            document.getElementById('removeCount').textContent = removes;
+            const addCountEl = document.getElementById('addCount');
+            if (addCountEl) addCountEl.textContent = adds;
+            
+            const removeCountEl = document.getElementById('removeCount');
+            if (removeCountEl) removeCountEl.textContent = removes;
 
-            summary.classList.remove('hidden');
+            if (summary) summary.classList.remove('hidden');
             acceptAllBtn.classList.remove('hidden');
             updateSyncButtonLabel();
         }

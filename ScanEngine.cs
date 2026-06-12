@@ -26,12 +26,12 @@ namespace RepoScanner.Services
 
             if (Directory.Exists(rootPath))
             {
-                await Task.Run(() => WalkDirectory(rootPath, rootPath, blacklists, inventory));
+                await Task.Run(() => WalkDirectory(rootPath, rootPath, blacklists, inventory, false));
             }
 
             var inventoryList = inventory.ToList();
-            int totalFiles = inventoryList.Count(i => !i.IsFolder);
-            int totalFolders = inventoryList.Count(i => i.IsFolder);
+            int totalFiles = inventoryList.Count(i => !i.IsFolder && !i.IsBlacklisted);
+            int totalFolders = inventoryList.Count(i => i.IsFolder && !i.IsBlacklisted);
 
             return new ScanSnapshot
             {
@@ -44,7 +44,7 @@ namespace RepoScanner.Services
             };
         }
 
-        private static void WalkDirectory(string currentDir, string rootPath, List<dynamic> blacklists, ConcurrentBag<FileInventoryItem> inventory)
+        private static void WalkDirectory(string currentDir, string rootPath, List<dynamic> blacklists, ConcurrentBag<FileInventoryItem> inventory, bool parentIsBlacklisted)
         {
             try
             {
@@ -63,15 +63,18 @@ namespace RepoScanner.Services
                     return; // Skip completely
                 }
 
-                // Check entire folder blacklist
-                var folderIgnore = blacklists.FirstOrDefault(b => 
-                    b.IgnoreCondition == "IGNORE_ENTIRE_FOLDER" && 
-                    PathMatchesPattern(relativePathLower, b.Path)
-                );
-
-                if (folderIgnore != null)
+                bool isFolderBlacklisted = parentIsBlacklisted;
+                if (!isFolderBlacklisted)
                 {
-                    return; // Skip completely
+                    // Check entire folder blacklist
+                    var folderIgnore = blacklists.FirstOrDefault(b => 
+                        b.IgnoreCondition == "IGNORE_ENTIRE_FOLDER" && 
+                        PathMatchesPattern(relativePathLower, b.Path)
+                    );
+                    if (folderIgnore != null)
+                    {
+                        isFolderBlacklisted = true;
+                    }
                 }
 
                 // Check ignore files only condition
@@ -79,6 +82,8 @@ namespace RepoScanner.Services
                     b.IgnoreCondition == "IGNORE_FILES_ONLY" && 
                     PathMatchesPattern(relativePathLower, b.Path)
                 );
+
+                bool filesAreIgnored = isFolderBlacklisted || (filesIgnore != null);
 
                 // Ignore hidden/system folders (like $RECYCLE.BIN, System Volume Information)
                 if (!string.IsNullOrEmpty(relativePath))
@@ -103,48 +108,60 @@ namespace RepoScanner.Services
                         IsFolder = true,
                         Size = 0,
                         LastModified = dirInfo.LastWriteTimeUtc,
-                        RootPath = rootPath
+                        RootPath = rootPath,
+                        IsBlacklisted = isFolderBlacklisted
                     });
                 }
 
-                // Process files in the current folder if not ignored
-                if (filesIgnore == null)
+                // Process files in the current folder
+                try
                 {
-                    try
+                    var files = Directory.GetFiles(currentDir);
+                    foreach (var filePath in files)
                     {
-                        var files = Directory.GetFiles(currentDir);
-                        foreach (var filePath in files)
+                        var fileInfo = new FileInfo(filePath);
+                        if ((fileInfo.Attributes & (FileAttributes.Hidden | FileAttributes.System)) != 0 ||
+                            fileInfo.Name.StartsWith("$", StringComparison.OrdinalIgnoreCase))
                         {
-                            var fileInfo = new FileInfo(filePath);
-                            if ((fileInfo.Attributes & (FileAttributes.Hidden | FileAttributes.System)) != 0 ||
-                                fileInfo.Name.StartsWith("$", StringComparison.OrdinalIgnoreCase))
-                            {
-                                continue;
-                            }
-                            string fileRelativePath = Path.GetRelativePath(rootPath, filePath);
-                            inventory.Add(new FileInventoryItem
-                            {
-                                Name = fileInfo.Name,
-                                RelativePath = fileRelativePath,
-                                IsFolder = false,
-                                Size = fileInfo.Length,
-                                LastModified = fileInfo.LastWriteTimeUtc,
-                                RootPath = rootPath
-                            });
+                            continue;
                         }
+                        string fileRelativePath = Path.GetRelativePath(rootPath, filePath);
+                        
+                        bool fileIsBlacklisted = filesAreIgnored;
+                        if (!fileIsBlacklisted)
+                        {
+                            // Check if file itself matches any pattern (e.g. wildcard or regex rule)
+                            var fileIgnoreRule = blacklists.FirstOrDefault(b =>
+                                PathMatchesPattern(fileRelativePath.ToLowerInvariant(), b.Path)
+                            );
+                            if (fileIgnoreRule != null)
+                            {
+                                fileIsBlacklisted = true;
+                            }
+                        }
+
+                        inventory.Add(new FileInventoryItem
+                        {
+                            Name = fileInfo.Name,
+                            RelativePath = fileRelativePath,
+                            IsFolder = false,
+                            Size = fileInfo.Length,
+                            LastModified = fileInfo.LastWriteTimeUtc,
+                            RootPath = rootPath,
+                            IsBlacklisted = fileIsBlacklisted
+                        });
                     }
-                    catch (UnauthorizedAccessException) { }
-                    catch (DirectoryNotFoundException) { }
                 }
+                catch (UnauthorizedAccessException) { }
+                catch (DirectoryNotFoundException) { }
 
                 // Recursively walk subdirectories
                 try
                 {
                     var subdirs = Directory.GetDirectories(currentDir);
-                    // Use parallel execution for subfolders to maximize performance over network shares
                     Parallel.ForEach(subdirs, new ParallelOptions { MaxDegreeOfParallelism = 8 }, subdir =>
                     {
-                        WalkDirectory(subdir, rootPath, blacklists, inventory);
+                        WalkDirectory(subdir, rootPath, blacklists, inventory, isFolderBlacklisted);
                     });
                 }
                 catch (UnauthorizedAccessException) { }
